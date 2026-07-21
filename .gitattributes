@@ -1,1 +1,2 @@
 manifest.sig -text -diff -merge
+manifest.json -text -diff -merge
