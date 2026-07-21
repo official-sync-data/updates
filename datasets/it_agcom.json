@@ -1,0 +1,88 @@
+{
+    "schemaVersion": 1,
+    "publicationDate": "2026-04-29",
+    "sourceAuthority": "AGCOM",
+    "sourceReference": "Delibera AGCOM n. 21/26/CIR; Piano di numerazione - Agcom",
+    "rules": [
+        {
+            "id": "it_agcom_geographic_0",
+            "countryId": "IT",
+            "normalizedPrefix": "+390",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "it_agcom_specific_short_premium_social_1",
+            "countryId": "IT",
+            "normalizedPrefix": "+391",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "it_agcom_mobile_personal_3",
+            "countryId": "IT",
+            "normalizedPrefix": "+393",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "it_agcom_internal_network_sms_mms_data_4",
+            "countryId": "IT",
+            "normalizedPrefix": "+394",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "it_agcom_nomadic_5",
+            "countryId": "IT",
+            "normalizedPrefix": "+395",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "it_agcom_internet_mobile_personal_codes_7",
+            "countryId": "IT",
+            "normalizedPrefix": "+397",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "it_agcom_charged_called_shared_premium_8",
+            "countryId": "IT",
+            "normalizedPrefix": "+398",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        }
+    ],
+    "datasetId": "it_agcom",
+    "datasetVersion": "2026-04-29",
+    "lastCheckedDate": "2026-07-21"
+}

@@ -1,11 +1,53 @@
 {
     "schemaVersion":  1,
     "datasets":  {
+                     "de_bundesnetzagentur":  {
+                                                  "version":  "2026-06-17",
+                                                  "url":  "https://official-sync-data.github.io/updates/datasets/de_bundesnetzagentur.json",
+                                                  "sha256":  "64c4b97a09d50db3c20276dbc596d6eb61d75fa2a8b97817f1fa732e0cd8857f",
+                                                  "ruleCount":  19
+                                              },
+                     "en_ofcom":  {
+                                      "version":  "2025-04-22",
+                                      "url":  "https://official-sync-data.github.io/updates/datasets/en_ofcom.json",
+                                      "sha256":  "b1855ec6f0a15501ecfbfdd8b5a936628910cd700758416418d4c8a729cd8dbc",
+                                      "ruleCount":  29
+                                  },
+                     "es_cnmc":  {
+                                     "version":  "2026-04-27",
+                                     "url":  "https://official-sync-data.github.io/updates/datasets/es_cnmc.json",
+                                     "sha256":  "ba86a84891858d74c6f37e23606498f06c4e1e3e18a2f6f8d529e0dd0784cafd",
+                                     "ruleCount":  21
+                                 },
                      "fr_arcep":  {
                                       "version":  "2026-07-21",
                                       "url":  "https://official-sync-data.github.io/updates/datasets/fr_arcep.json",
                                       "sha256":  "ae4842bbbf7e9101d138cb590fad674e4096dfc7c0f8ae62cbb6a189a1e24f40",
                                       "ruleCount":  22
-                                  }
+                                  },
+                     "it_agcom":  {
+                                      "version":  "2026-04-29",
+                                      "url":  "https://official-sync-data.github.io/updates/datasets/it_agcom.json",
+                                      "sha256":  "601442df92300a951949551e89c5b31436cd3b8ca31c412d422e5be0f5b00297",
+                                      "ruleCount":  7
+                                  },
+                     "lb_ilr":  {
+                                    "version":  "2025-10-01",
+                                    "url":  "https://official-sync-data.github.io/updates/datasets/lb_ilr.json",
+                                    "sha256":  "54ddbb88828f3886534fc23bb3373e262c8b9968e68d6e8d49faebd35fb3ba96",
+                                    "ruleCount":  31
+                                },
+                     "nl_acm":  {
+                                    "version":  "2025-10-03",
+                                    "url":  "https://official-sync-data.github.io/updates/datasets/nl_acm.json",
+                                    "sha256":  "a7fe0b29e1cfee8b02011cfae4a9fbd8a69a53312a34df7ad29676be1d26836c",
+                                    "ruleCount":  11
+                                },
+                     "pt_anacom":  {
+                                       "version":  "2007-07-25",
+                                       "url":  "https://official-sync-data.github.io/updates/datasets/pt_anacom.json",
+                                       "sha256":  "3e9c199e2f5053c7ce044021a360dbda53e7be22172f471f5ac8b20968978282",
+                                       "ruleCount":  17
+                                   }
                  }
 }

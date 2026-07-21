@@ -1,0 +1,132 @@
+{
+    "schemaVersion": 1,
+    "publicationDate": "2025-06-25",
+    "sourceAuthority": "ACM",
+    "sourceReference": "Nummerplan telefoon- en ISDN-diensten, geldend vanaf 03-10-2025; ACM ConsuWijzer - De verdeling van telefoonnummers in Nederland",
+    "rules": [
+        {
+            "id": "nl_acm_mobile_06",
+            "countryId": "NL",
+            "normalizedPrefix": "+316",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "nl_acm_freephone_0800",
+            "countryId": "NL",
+            "normalizedPrefix": "+31800",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "nl_acm_personal_assistant_084",
+            "countryId": "NL",
+            "normalizedPrefix": "+3184",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "nl_acm_public_electronic_085",
+            "countryId": "NL",
+            "normalizedPrefix": "+3185",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "nl_acm_personal_assistant_087",
+            "countryId": "NL",
+            "normalizedPrefix": "+3187",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "nl_acm_business_088",
+            "countryId": "NL",
+            "normalizedPrefix": "+3188",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "nl_acm_information_0900",
+            "countryId": "NL",
+            "normalizedPrefix": "+31900",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "nl_acm_information_0906",
+            "countryId": "NL",
+            "normalizedPrefix": "+31906",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "nl_acm_information_0909",
+            "countryId": "NL",
+            "normalizedPrefix": "+31909",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "nl_acm_public_electronic_091",
+            "countryId": "NL",
+            "normalizedPrefix": "+3191",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "nl_acm_data_097",
+            "countryId": "NL",
+            "normalizedPrefix": "+3197",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        }
+    ],
+    "datasetId": "nl_acm",
+    "datasetVersion": "2025-10-03",
+    "lastCheckedDate": "2026-07-21"
+}

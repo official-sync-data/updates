@@ -1,0 +1,198 @@
+{
+    "schemaVersion": 1,
+    "publicationDate": "2007-07-25",
+    "sourceAuthority": "ANACOM",
+    "sourceReference": "Plano Nacional de Numeracao; Portabilidade de numeros - ANACOM; Enquadramento relativo a designacao de uma nova gama de numeracao para o Servico Telefonico Movel, publicado em 25.07.2007",
+    "rules": [
+        {
+            "id": "pt_anacom_fixed_2",
+            "countryId": "PT",
+            "normalizedPrefix": "+3512",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "pt_anacom_nomadic_voip_30",
+            "countryId": "PT",
+            "normalizedPrefix": "+35130",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "pt_anacom_m2m_mobile_internet_49",
+            "countryId": "PT",
+            "normalizedPrefix": "+35149",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "pt_anacom_premium_utility_71",
+            "countryId": "PT",
+            "normalizedPrefix": "+35171",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "pt_anacom_universal_access_707",
+            "countryId": "PT",
+            "normalizedPrefix": "+351707",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "pt_anacom_universal_access_708",
+            "countryId": "PT",
+            "normalizedPrefix": "+351708",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "pt_anacom_flat_rate_760",
+            "countryId": "PT",
+            "normalizedPrefix": "+351760",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "pt_anacom_flat_rate_761",
+            "countryId": "PT",
+            "normalizedPrefix": "+351761",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "pt_anacom_flat_rate_762",
+            "countryId": "PT",
+            "normalizedPrefix": "+351762",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "pt_anacom_freephone_800",
+            "countryId": "PT",
+            "normalizedPrefix": "+351800",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "pt_anacom_shared_cost_808",
+            "countryId": "PT",
+            "normalizedPrefix": "+351808",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "pt_anacom_shared_cost_809",
+            "countryId": "PT",
+            "normalizedPrefix": "+351809",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "pt_anacom_personal_884",
+            "countryId": "PT",
+            "normalizedPrefix": "+351884",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "pt_anacom_mobile_91",
+            "countryId": "PT",
+            "normalizedPrefix": "+35191",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "pt_anacom_mobile_92",
+            "countryId": "PT",
+            "normalizedPrefix": "+35192",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "pt_anacom_mobile_93",
+            "countryId": "PT",
+            "normalizedPrefix": "+35193",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "pt_anacom_mobile_96",
+            "countryId": "PT",
+            "normalizedPrefix": "+35196",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        }
+    ],
+    "datasetId": "pt_anacom",
+    "datasetVersion": "2007-07-25",
+    "lastCheckedDate": "2026-07-21"
+}

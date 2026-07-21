@@ -1,0 +1,220 @@
+{
+    "schemaVersion": 1,
+    "publicationDate": "2026-06-17",
+    "sourceAuthority": "Bundesnetzagentur",
+    "sourceReference": "Bundesnetzagentur Nummerierung; Nummernplan Nummernraum fuer die oeffentliche Telekommunikation; Seiten zu (0)15/(0)16/(0)17, (0)32, (0)700, (0)800, (0)900, (0)180, (0)137, 118xy, 115, 116xyz, (0)164/(0)168/(0)169, (0)18/(0)181 und (0)19x",
+    "rules": [
+        {
+            "id": "de_bnetza_emergency_110",
+            "countryId": "DE",
+            "normalizedPrefix": "+49110",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_emergency_112",
+            "countryId": "DE",
+            "normalizedPrefix": "+49112",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_public_authority_115",
+            "countryId": "DE",
+            "normalizedPrefix": "+49115",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_social_value_116",
+            "countryId": "DE",
+            "normalizedPrefix": "+49116",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_directory_enquiries_118",
+            "countryId": "DE",
+            "normalizedPrefix": "+49118",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_mass_traffic_0137",
+            "countryId": "DE",
+            "normalizedPrefix": "+49137",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_mobile_015",
+            "countryId": "DE",
+            "normalizedPrefix": "+4915",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_mobile_016",
+            "countryId": "DE",
+            "normalizedPrefix": "+4916",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_mobile_017",
+            "countryId": "DE",
+            "normalizedPrefix": "+4917",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_paging_0164",
+            "countryId": "DE",
+            "normalizedPrefix": "+49164",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_paging_0168",
+            "countryId": "DE",
+            "normalizedPrefix": "+49168",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_paging_0169",
+            "countryId": "DE",
+            "normalizedPrefix": "+49169",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_service_0180",
+            "countryId": "DE",
+            "normalizedPrefix": "+49180",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_international_vpn_0181",
+            "countryId": "DE",
+            "normalizedPrefix": "+49181",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_routing_online_019",
+            "countryId": "DE",
+            "normalizedPrefix": "+4919",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_national_subscriber_032",
+            "countryId": "DE",
+            "normalizedPrefix": "+4932",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_personal_0700",
+            "countryId": "DE",
+            "normalizedPrefix": "+49700",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_freephone_0800",
+            "countryId": "DE",
+            "normalizedPrefix": "+49800",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "de_bnetza_premium_0900",
+            "countryId": "DE",
+            "normalizedPrefix": "+49900",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        }
+    ],
+    "datasetId": "de_bundesnetzagentur",
+    "datasetVersion": "2026-06-17",
+    "lastCheckedDate": "2026-07-21"
+}

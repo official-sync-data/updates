@@ -1,0 +1,242 @@
+{
+    "schemaVersion": 1,
+    "publicationDate": "2026-04-27",
+    "sourceAuthority": "CNMC",
+    "sourceReference": "Plan Nacional de Numeracion Telefonica; Real Decreto 2296/2004; Resolucion de 12 de marzo de 2010; Resolucion de 27 de abril de 2026; Orden TDF/149/2025; Registro de numeracion CNMC",
+    "rules": [
+        {
+            "id": "es_cnmc_emergency_112",
+            "countryId": "ES",
+            "normalizedPrefix": "+34112",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_directory_enquiries_118",
+            "countryId": "ES",
+            "normalizedPrefix": "+34118",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_nomadic_51",
+            "countryId": "ES",
+            "normalizedPrefix": "+3451",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_m2m_59",
+            "countryId": "ES",
+            "normalizedPrefix": "+3459",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_mobile_6",
+            "countryId": "ES",
+            "normalizedPrefix": "+346",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_personal_70",
+            "countryId": "ES",
+            "normalizedPrefix": "+3470",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_mobile_71",
+            "countryId": "ES",
+            "normalizedPrefix": "+3471",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_mobile_72",
+            "countryId": "ES",
+            "normalizedPrefix": "+3472",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_mobile_73",
+            "countryId": "ES",
+            "normalizedPrefix": "+3473",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_mobile_74",
+            "countryId": "ES",
+            "normalizedPrefix": "+3474",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_freephone_800",
+            "countryId": "ES",
+            "normalizedPrefix": "+34800",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_premium_adult_803",
+            "countryId": "ES",
+            "normalizedPrefix": "+34803",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_premium_entertainment_806",
+            "countryId": "ES",
+            "normalizedPrefix": "+34806",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_premium_professional_807",
+            "countryId": "ES",
+            "normalizedPrefix": "+34807",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_freephone_900",
+            "countryId": "ES",
+            "normalizedPrefix": "+34900",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_shared_cost_901",
+            "countryId": "ES",
+            "normalizedPrefix": "+34901",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_caller_pays_902",
+            "countryId": "ES",
+            "normalizedPrefix": "+34902",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_mass_calling_905",
+            "countryId": "ES",
+            "normalizedPrefix": "+34905",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_premium_data_907",
+            "countryId": "ES",
+            "normalizedPrefix": "+34907",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_internet_access_908",
+            "countryId": "ES",
+            "normalizedPrefix": "+34908",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        },
+        {
+            "id": "es_cnmc_internet_access_909",
+            "countryId": "ES",
+            "normalizedPrefix": "+34909",
+            "normalizedNumber": "",
+            "category": "OFFICIAL_COMMERCIAL_PREFIXES",
+            "status": "ACTIVE",
+            "enabledByDefault": false,
+            "userCanDisable": true,
+            "displayLabelKey": ""
+        }
+    ],
+    "datasetId": "es_cnmc",
+    "datasetVersion": "2026-04-27",
+    "lastCheckedDate": "2026-07-21"
+}
