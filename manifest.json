@@ -1,0 +1,11 @@
+{
+    "schemaVersion":  1,
+    "datasets":  {
+                     "fr_arcep":  {
+                                      "version":  "2026-07-21",
+                                      "url":  "URL_HTTPS_REELLE/datasets/fr_arcep.json",
+                                      "sha256":  "ae4842bbbf7e9101d138cb590fad674e4096dfc7c0f8ae62cbb6a189a1e24f40",
+                                      "ruleCount":  22
+                                  }
+                 }
+}

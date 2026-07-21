@@ -1,0 +1,253 @@
+{
+    "schemaVersion":  1,
+    "publicationDate":  "2022-09-01",
+    "sourceAuthority":  "ARCEP",
+    "sourceReference":  "Decision ARCEP n 2022-1583",
+    "rules":  [
+                  {
+                      "id":  "fr_arcep_0162",
+                      "countryId":  "FR",
+                      "normalizedPrefix":  "+33162",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "fr_arcep_0163",
+                      "countryId":  "FR",
+                      "normalizedPrefix":  "+33163",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "fr_arcep_0270",
+                      "countryId":  "FR",
+                      "normalizedPrefix":  "+33270",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "fr_arcep_0271",
+                      "countryId":  "FR",
+                      "normalizedPrefix":  "+33271",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "fr_arcep_0377",
+                      "countryId":  "FR",
+                      "normalizedPrefix":  "+33377",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "fr_arcep_0378",
+                      "countryId":  "FR",
+                      "normalizedPrefix":  "+33378",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "fr_arcep_0424",
+                      "countryId":  "FR",
+                      "normalizedPrefix":  "+33424",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "fr_arcep_0425",
+                      "countryId":  "FR",
+                      "normalizedPrefix":  "+33425",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "fr_arcep_0568",
+                      "countryId":  "FR",
+                      "normalizedPrefix":  "+33568",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "fr_arcep_0569",
+                      "countryId":  "FR",
+                      "normalizedPrefix":  "+33569",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "fr_arcep_0948",
+                      "countryId":  "FR",
+                      "normalizedPrefix":  "+33948",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "fr_arcep_0949",
+                      "countryId":  "FR",
+                      "normalizedPrefix":  "+33949",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "gp_arcep_05987",
+                      "countryId":  "GP",
+                      "normalizedPrefix":  "+5905987",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "gp_arcep_09475",
+                      "countryId":  "GP",
+                      "normalizedPrefix":  "+5909475",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "gf_arcep_05988",
+                      "countryId":  "GF",
+                      "normalizedPrefix":  "+5945988",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "gf_arcep_09476",
+                      "countryId":  "GF",
+                      "normalizedPrefix":  "+5949476",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "mq_arcep_05989",
+                      "countryId":  "MQ",
+                      "normalizedPrefix":  "+5965989",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "mq_arcep_09477",
+                      "countryId":  "MQ",
+                      "normalizedPrefix":  "+5969477",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "re_arcep_02688",
+                      "countryId":  "RE",
+                      "normalizedPrefix":  "+262688",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "re_arcep_09479",
+                      "countryId":  "RE",
+                      "normalizedPrefix":  "+2629479",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "yt_arcep_02689",
+                      "countryId":  "YT",
+                      "normalizedPrefix":  "+262689",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  },
+                  {
+                      "id":  "yt_arcep_09478",
+                      "countryId":  "YT",
+                      "normalizedPrefix":  "+2629478",
+                      "normalizedNumber":  "",
+                      "category":  "OFFICIAL_COMMERCIAL_PREFIXES",
+                      "status":  "ACTIVE",
+                      "enabledByDefault":  false,
+                      "userCanDisable":  true,
+                      "displayLabelKey":  ""
+                  }
+              ],
+    "datasetId":  "fr_arcep",
+    "datasetVersion":  "2026-07-21",
+    "lastCheckedDate":  "2026-07-21"
+}
