@@ -437,7 +437,7 @@ def validate_official_numbers_migration(new_compact_path, build_report):
     empty_categories = 0
     invalid_numbers = 0
     for number, entry in entries.items():
-        if not re.fullmatch(r"\+33\d{9}", number):
+        if not re.fullmatch(r"\+33[1-9]\d{8}", number):
             invalid_numbers += 1
         category = str(entry.get("t") or "").strip()
         if category.startswith("FINESS categorie "):

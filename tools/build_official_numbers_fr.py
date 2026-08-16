@@ -29,13 +29,13 @@ def normalize_fr_number(value):
         return None
     if text.startswith("+"):
         normalized = "+" + re.sub(r"\D", "", text[1:])
-        return normalized if re.fullmatch(r"\+33\d{9}", normalized) else None
+        return normalized if re.fullmatch(r"\+33[1-9]\d{8}", normalized) else None
     digits = re.sub(r"\D", "", text)
-    if re.fullmatch(r"0\d{9}", digits):
+    if re.fullmatch(r"0[1-9]\d{8}", digits):
         return "+33" + digits[1:]
-    if re.fullmatch(r"33\d{9}", digits):
+    if re.fullmatch(r"33[1-9]\d{8}", digits):
         return "+" + digits
-    if re.fullmatch(r"0033\d{9}", digits):
+    if re.fullmatch(r"0033[1-9]\d{8}", digits):
         return "+33" + digits[4:]
     return None
 
@@ -77,6 +77,17 @@ def write_gzip(path, payload):
 
 def sha256_bytes(payload):
     return hashlib.sha256(payload).hexdigest()
+
+
+def canonical_json_sha256(payload):
+    parsed = json.loads(payload.decode("utf-8-sig"))
+    canonical = json.dumps(
+        parsed,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def write_bytes(path, payload):
@@ -262,14 +273,35 @@ def source_rank(source):
     return 9
 
 
-def candidate_rank(candidate):
-    return min(source_rank(source) for source in candidate["sources"])
+def candidate_selection_key(source, candidate):
+    return (
+        source_rank(source),
+        clean_text(source.get("sourceId")),
+        clean_text(source.get("authority")),
+        clean_text(source.get("entityType")),
+        candidate["displayName"],
+        candidate["city"],
+        candidate["postalCode"],
+        candidate["department"],
+        candidate["category"],
+    )
+
+
+def record_invalid_french_phone(rejected, raw):
+    rejected.append(
+        {
+            "reason": "invalid_french_phone_format",
+            "source": clean_text(raw.get("authority")),
+            "sourceId": clean_text(raw.get("sourceId")),
+            "rawValue": clean_text(raw.get("phone")),
+        }
+    )
 
 
 def add_candidate(groups, rejected, raw):
     normalized = normalize_fr_number(raw.get("phone"))
     if normalized is None:
-        rejected.append({"reason": "invalid_phone", "source": raw.get("authority", ""), "value": raw.get("phone", "")})
+        record_invalid_french_phone(rejected, raw)
         return
     if not clean_text(raw.get("displayName")):
         rejected.append({"reason": "missing_name", "source": raw.get("authority", ""), "value": normalized})
@@ -304,17 +336,26 @@ def add_candidate(groups, rejected, raw):
         "status": "ACTIVE",
         "sources": [source],
     }
+    candidate["_selectionKey"] = candidate_selection_key(source, candidate)
+    candidate["_selectedAuthority"] = source.get("authority", "")
     if normalized not in groups:
         groups[normalized] = candidate
         return
     current = groups[normalized]
-    current_rank = candidate_rank(current)
-    new_rank = candidate_rank(candidate)
     existing = {(s.get("authority"), s.get("sourceId"), s.get("entityType")) for s in current["sources"]}
     key = (source.get("authority"), source.get("sourceId"), source.get("entityType"))
     if key not in existing:
         current["sources"].append(source)
-    if new_rank < current_rank:
+    current_key = current["_selectionKey"]
+    new_key = candidate["_selectionKey"]
+    higher_priority = new_key[0] < current_key[0]
+    deterministic_dila_tie = (
+        new_key[0] == current_key[0]
+        and candidate["_selectedAuthority"] == "DILA"
+        and current["_selectedAuthority"] == "DILA"
+        and new_key < current_key
+    )
+    if higher_priority or deterministic_dila_tie:
         merged_sources = current["sources"]
         groups[normalized] = candidate
         groups[normalized]["sources"] = merged_sources
@@ -456,6 +497,11 @@ def fetch_finess(groups, rejected, limit, cache_dir, required_numbers, category_
                         added += 1
                     break
                 elif phone:
+                    record_invalid_french_phone(rejected, {
+                        "authority": "FINESS",
+                        "sourceId": pmej_info.get("numFinessPm"),
+                        "phone": phone,
+                    })
                     stats["rejectedNumbers"] += 1
         for ege in pmej.get("ege") or []:
             stats["examined"] += 1
@@ -504,6 +550,11 @@ def fetch_finess(groups, rejected, limit, cache_dir, required_numbers, category_
                         added += 1
                     break
                 elif phone:
+                    record_invalid_french_phone(rejected, {
+                        "authority": "FINESS",
+                        "sourceId": ege_info.get("numFinessEge"),
+                        "phone": phone,
+                    })
                     stats["rejectedNumbers"] += 1
         if limit and added >= limit and found_required == required_numbers:
             break
@@ -629,6 +680,11 @@ def freeze_sources(snapshot_dir, overrides_path, dila_limit=0):
         metadata.update(extra)
         source_hashes["sources"][authority] = metadata
 
+    source_hashes["sources"]["FHF"].update(
+        rawSha256=sha256_bytes(fhf_bytes),
+        canonicalSha256=canonical_json_sha256(fhf_bytes),
+    )
+
     category_json = json.loads(category_bytes.decode("utf-8-sig"))
     source_hashes["sources"]["FINESS_categories"].update(
         version=clean_text(category_json.get("version")),
@@ -677,7 +733,8 @@ def load_frozen_sources(snapshot_dir):
         "FHF": paths["fhf"],
     }
     for authority, path in hash_mapping.items():
-        expected = (source_hashes.get(authority) or {}).get("sha256", "")
+        metadata = source_hashes.get(authority) or {}
+        expected = metadata.get("rawSha256") or metadata.get("sha256", "")
         with open(path, "rb") as handle:
             actual = hashlib.sha256(handle.read()).hexdigest()
         if not expected or actual != expected:
@@ -690,6 +747,15 @@ def build_entries(groups):
     for number in sorted(groups.keys()):
         entry = groups[number]
         entry["id"] = stable_id(number)
+        entry["sources"] = sorted(
+            entry["sources"],
+            key=lambda source: (
+                source_rank(source),
+                clean_text(source.get("sourceId")),
+                clean_text(source.get("authority")),
+                clean_text(source.get("entityType")),
+            ),
+        )
         ordered = OrderedDict()
         for key in ("id", "normalizedNumber", "displayName", "city", "postalCode", "department", "category", "categoryCode", "categoryCodeSystem", "status", "sources"):
             ordered[key] = entry.get(key, "" if key != "sources" else [])
@@ -783,7 +849,10 @@ def guard(dataset, previous, large_change_explanation=""):
         errors.append("entryCount_incoherent")
     if any(not e.get("sources") for e in entries):
         errors.append("empty_sources")
-    if any(not re.fullmatch(r"\+33\d{9}", e.get("normalizedNumber", "")) for e in entries):
+    if any(
+        not re.fullmatch(r"\+33[1-9]\d{8}", e.get("normalizedNumber", ""))
+        for e in entries
+    ):
         errors.append("invalid_normalizedNumber")
     if previous and previous.get("entries"):
         previous_count = len(previous.get("entries", []))
@@ -899,6 +968,23 @@ def main():
     diff["guardErrors"] = errors
     diff["largeChangeExplanation"] = large_change_explanation
     diff["rejected"] = rejected
+    diff["rejectedInvalidFrenchPhone"] = sorted(
+        (
+            {
+                "source": item.get("source", ""),
+                "sourceId": item.get("sourceId", ""),
+                "rawValue": item.get("rawValue", ""),
+                "reason": item.get("reason", ""),
+            }
+            for item in rejected
+            if item.get("reason") == "invalid_french_phone_format"
+        ),
+        key=lambda item: (
+            item["source"],
+            item["sourceId"],
+            item["rawValue"],
+        ),
+    )
     diff["sourceStats"] = {"DILA": dila_stats, "FINESS": finess_stats, "FHF_validated": fhf_validated}
     diff["finessCategoryNomenclature"] = category_nomenclature
     diff["finessCommuneNomenclature"] = commune_nomenclature
