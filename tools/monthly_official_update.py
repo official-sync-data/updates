@@ -31,6 +31,11 @@ AUTOMATED_RULE_DATASETS = {
     "pt_anacom",
 }
 PRESERVE_STATUSES = {"MANUAL_REQUIRED", "TEMPORARILY_UNAVAILABLE"}
+REVIEW_REQUIRED_STATUS = "BLOCKED_REVIEW_REQUIRED"
+OFFICIAL_NUMBERS_AUTO_CHANGE_RATIO_LIMIT = 0.005
+OFFICIAL_NUMBERS_DROP_RATIO_LIMIT = 0.20
+OFFICIAL_NUMBERS_GROWTH_RATIO_LIMIT = 0.50
+OFFICIAL_NUMBERS_REMOVAL_RATIO_LIMIT = 0.10
 ALLOWED_DIFF_FILES = {
     "manifest.json",
     "manifest.sig",
@@ -128,6 +133,142 @@ def read_manifest_entry_count(dataset_id):
         return 0
 
 
+def official_numbers_functional_entries(dataset_json):
+    if dataset_json.get("datasetId") != "official_numbers_fr":
+        raise ValueError("datasetId official_numbers_fr attendu.")
+    entries = dataset_json.get("entries")
+    if not isinstance(entries, list):
+        raise ValueError("entries absent ou invalide.")
+
+    functional_entries = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise ValueError("entrée official_numbers_fr invalide.")
+        number = entry.get("n")
+        display_name = entry.get("d")
+        if not isinstance(number, str) or not number:
+            raise ValueError("normalizedNumber absent.")
+        if not isinstance(display_name, str) or not display_name:
+            raise ValueError("displayName absent.")
+        if number in functional_entries:
+            raise ValueError(f"normalizedNumber dupliqué: {number}")
+
+        functional_entry = {}
+        for key in ("n", "d", "c", "t", "dep"):
+            value = entry.get(key)
+            if value is not None:
+                functional_entry[key] = value
+        functional_entries[number] = functional_entry
+
+    entry_count = dataset_json.get("entryCount")
+    if entry_count is not None and entry_count != len(functional_entries):
+        raise ValueError("entryCount incohérent.")
+    return functional_entries
+
+
+def compare_official_numbers_compact(new_compact_path):
+    existing_compact_path = DATASETS_DIR / "official_numbers_fr.json.gz"
+    if not existing_compact_path.exists():
+        new_count = len(official_numbers_functional_entries(read_json(new_compact_path)))
+        return {
+            "status": "CHANGED",
+            "addedCount": new_count,
+            "removedCount": 0,
+            "modifiedCount": 0,
+            "oldEntryCount": 0,
+            "newEntryCount": new_count,
+            "changeCount": new_count,
+            "changeRatio": 0.0,
+            "error": "",
+        }
+
+    try:
+        old_entries = official_numbers_functional_entries(read_gzip_json(existing_compact_path))
+    except Exception as exc:
+        return {
+            "status": "BLOCKED",
+            "addedCount": 0,
+            "removedCount": 0,
+            "modifiedCount": 0,
+            "oldEntryCount": 0,
+            "newEntryCount": 0,
+            "changeCount": 0,
+            "changeRatio": 0.0,
+            "error": f"Existing official_numbers_fr public dataset invalid: {type(exc).__name__}: {exc}",
+        }
+
+    try:
+        new_entries = official_numbers_functional_entries(read_json(new_compact_path))
+    except Exception as exc:
+        return {
+            "status": "BLOCKED",
+            "addedCount": 0,
+            "removedCount": 0,
+            "modifiedCount": 0,
+            "oldEntryCount": len(old_entries),
+            "newEntryCount": 0,
+            "changeCount": 0,
+            "changeRatio": 0.0,
+            "error": f"Generated official_numbers_fr compact dataset invalid: {type(exc).__name__}: {exc}",
+        }
+
+    old_numbers = set(old_entries)
+    new_numbers = set(new_entries)
+    common_numbers = old_numbers & new_numbers
+    modified = sum(1 for number in common_numbers if old_entries[number] != new_entries[number])
+    added = len(new_numbers - old_numbers)
+    removed = len(old_numbers - new_numbers)
+    old_count = len(old_entries)
+    new_count = len(new_entries)
+    change_count = added + removed + modified
+    change_ratio = change_count / old_count if old_count else 0.0
+    status = "CHANGED" if added or removed or modified else "UNCHANGED"
+    error = ""
+    if new_count <= 0:
+        status = "BLOCKED"
+        error = "official_numbers_fr compact dataset empty."
+    elif old_count and new_count < old_count * (1 - OFFICIAL_NUMBERS_DROP_RATIO_LIMIT):
+        status = "BLOCKED"
+        error = "official_numbers_fr total drop exceeds 20%."
+    elif old_count and new_count > old_count * (1 + OFFICIAL_NUMBERS_GROWTH_RATIO_LIMIT):
+        status = "BLOCKED"
+        error = "official_numbers_fr total growth exceeds 50%."
+    elif old_count and removed / old_count > OFFICIAL_NUMBERS_REMOVAL_RATIO_LIMIT:
+        status = "BLOCKED"
+        error = "official_numbers_fr removals exceed 10%."
+    elif status == "CHANGED" and change_ratio > OFFICIAL_NUMBERS_AUTO_CHANGE_RATIO_LIMIT:
+        status = REVIEW_REQUIRED_STATUS
+        error = (
+            "PUBLICATION BLOQUÉE — VALIDATION HUMAINE REQUISE: "
+            f"official_numbers_fr change ratio {change_ratio:.4%} exceeds 0.5%."
+        )
+    return {
+        "status": status,
+        "addedCount": added,
+        "removedCount": removed,
+        "modifiedCount": modified,
+        "oldEntryCount": old_count,
+        "newEntryCount": new_count,
+        "changeCount": change_count,
+        "changeRatio": change_ratio,
+        "error": error,
+    }
+
+
+def official_numbers_review_fingerprint(result):
+    payload = {
+        "datasetId": "official_numbers_fr",
+        "oldEntryCount": result.get("oldEntryCount", 0),
+        "entryCount": result.get("entryCount", 0),
+        "addedCount": result.get("addedCount", 0),
+        "removedCount": result.get("removedCount", 0),
+        "modifiedCount": result.get("modifiedCount", 0),
+        "changeRatio": round(float(result.get("changeRatio", 0.0)), 8),
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def run_official_numbers_builder(enabled, keep_output=False):
     result = {
         "datasetId": "official_numbers_fr",
@@ -144,6 +285,11 @@ def run_official_numbers_builder(enabled, keep_output=False):
         "addedCount": 0,
         "removedCount": 0,
         "modifiedCount": 0,
+        "changeCount": 0,
+        "changeRatio": 0.0,
+        "reviewRequired": False,
+        "reviewReason": "",
+        "reviewFingerprint": "",
     }
     if not enabled:
         result["error"] = "Skipped in local safe validation mode."
@@ -185,18 +331,35 @@ def run_official_numbers_builder(enabled, keep_output=False):
         if report_file.exists():
             build_report = read_json(report_file)
             result["entryCount"] = build_report.get("entryCount", result["entryCount"])
-            has_changes = bool(
-                build_report.get("added")
-                or build_report.get("removed")
-                or build_report.get("modified")
-            )
-            result["status"] = "CHANGED" if has_changes else "UNCHANGED"
             result["sourceStats"] = build_report.get(
                 "sourceStats", builder_output.get("sourceStats", {})
             )
-            result["addedCount"] = len(build_report.get("added", []))
-            result["removedCount"] = len(build_report.get("removed", []))
-            result["modifiedCount"] = len(build_report.get("modified", []))
+            compact_comparison = compare_official_numbers_compact(
+                temp_root / "datasets" / "official_numbers_fr.json"
+            )
+            result["status"] = compact_comparison["status"]
+            result["addedCount"] = compact_comparison["addedCount"]
+            result["removedCount"] = compact_comparison["removedCount"]
+            result["modifiedCount"] = compact_comparison["modifiedCount"]
+            result["changeCount"] = compact_comparison["changeCount"]
+            result["changeRatio"] = compact_comparison["changeRatio"]
+            result["reviewRequired"] = compact_comparison["status"] == REVIEW_REQUIRED_STATUS
+            if compact_comparison["error"]:
+                result["error"] = compact_comparison["error"]
+                if result["reviewRequired"]:
+                    result["reviewReason"] = compact_comparison["error"]
+            dila_stats = result.get("sourceStats", {}).get("DILA", {})
+            finess_stats = result.get("sourceStats", {}).get("FINESS", {})
+            if int(dila_stats.get("validNumbers", 0)) <= 0:
+                result["status"] = "BLOCKED"
+                result["error"] = "official_numbers_fr source DILA disappeared."
+                result["reviewRequired"] = False
+            elif int(finess_stats.get("validNumbers", 0)) <= 0:
+                result["status"] = "BLOCKED"
+                result["error"] = "official_numbers_fr source FINESS disappeared."
+                result["reviewRequired"] = False
+            if result["reviewRequired"]:
+                result["reviewFingerprint"] = official_numbers_review_fingerprint(result)
         else:
             result["status"] = "BLOCKED"
             result["error"] = "Build report absent."
@@ -440,14 +603,15 @@ def publish_if_needed(report):
 
 def simulation_report(case_name):
     cases = {
-        "A": ("SUCCESS", "aucun changement, aucun commit, aucun push"),
-        "B": ("READY_TO_PUBLISH", "changement valide simulé, commit préparé sans publication réelle locale"),
-        "C": ("BLOCKED", "dataset vide refusé"),
-        "D": ("BLOCKED", "FINESS inaccessible, official_numbers_fr non publié"),
-        "E": ("SUCCESS", "Ofcom HTTP 403 classé MANUAL_REQUIRED, 29 règles existantes conservées"),
-        "F": ("SUCCESS", "ILR timeout classé TEMPORARILY_UNAVAILABLE, 31 règles existantes conservées"),
-        "G": ("BLOCKED", "verify_update.ps1 en erreur, publication refusée"),
-        "H": ("BLOCKED", "APK détecté dans le diff, publication refusée"),
+        "A": ("SUCCESS", "0 modification"),
+        "B": ("READY_TO_PUBLISH", "100 modifications sur 144576, publication automatique autorisable"),
+        "C": ("READY_TO_PUBLISH", "722 modifications sur 144576, sous le seuil de 0,5 %"),
+        "D": (REVIEW_REQUIRED_STATUS, "723 modifications sur 144576, validation humaine requise"),
+        "E": (REVIEW_REQUIRED_STATUS, "2249 modifications sur 144576, validation humaine requise"),
+        "F": ("BLOCKED", "dataset vide refusé"),
+        "G": ("BLOCKED", "FINESS indisponible"),
+        "H": ("ERROR", "verify_update.ps1 échoue"),
+        "I": ("BLOCKED", "APK/FULL/clé privée détecté dans le diff"),
     }
     status, detail = cases[case_name]
     return {"case": case_name, "status": status, "detail": detail}
@@ -500,10 +664,15 @@ def build_markdown(report):
             f"- Statut : {numbers['status']}",
             f"- Ancien total : {numbers.get('oldEntryCount', 0)}",
             f"- Nouveau total : {numbers['entryCount']}",
+            f"- Ajouts : {numbers.get('addedCount', 0)}",
+            f"- Suppressions : {numbers.get('removedCount', 0)}",
+            f"- Modifications : {numbers.get('modifiedCount', 0)}",
+            f"- Taux de changement : {numbers.get('changeRatio', 0.0) * 100:.2f} %",
             f"- DILA automatisé : {numbers['dilaAutomated']}",
             f"- FINESS automatisé : {numbers['finessAutomated']}",
             f"- FHF override conservé : {numbers['fhfOverridePreserved']}",
             f"- FULL exclu de public : {numbers['fullExcludedFromPublic']}",
+            f"- Empreinte revue unique : {numbers.get('reviewFingerprint') or 'N/A'}",
             "",
             "## Simulations locales",
         ]
@@ -525,6 +694,24 @@ def build_markdown(report):
     )
     if report["blockingDatasets"]:
         lines.append(f"- Anomalies bloquantes : {', '.join(report['blockingDatasets'])}")
+    if report["status"] == REVIEW_REQUIRED_STATUS:
+        lines.extend(
+            [
+                "",
+                "## PUBLICATION BLOQUÉE — VALIDATION HUMAINE REQUISE",
+                "- Dataset : official_numbers_fr",
+                f"- Ancien nombre : {numbers.get('oldEntryCount', 0)}",
+                f"- Nouveau nombre : {numbers.get('entryCount', 0)}",
+                f"- Ajouts : {numbers.get('addedCount', 0)}",
+                f"- Suppressions : {numbers.get('removedCount', 0)}",
+                f"- Modifications : {numbers.get('modifiedCount', 0)}",
+                f"- Taux de changement : {numbers.get('changeRatio', 0.0) * 100:.2f} %",
+                "- Source principalement concernée : FINESS",
+                "- Publication : NON",
+                "- Données publiques précédentes : CONSERVÉES",
+                f"- Empreinte revue unique : {numbers.get('reviewFingerprint') or 'N/A'}",
+            ]
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -543,6 +730,8 @@ def run(args):
     )
     if official_numbers["status"] == "BLOCKED":
         blocking.append("official_numbers_fr")
+    elif official_numbers["status"] == REVIEW_REQUIRED_STATUS:
+        blocking.append("official_numbers_fr_review_required")
     elif official_numbers["status"] == "CHANGED":
         changed.append("official_numbers_fr")
     elif official_numbers["status"] == "UNCHANGED":
@@ -554,7 +743,9 @@ def run(args):
     if rule_datasets_changed:
         blocking.extend(f"{dataset_id}_rule_dataset_changed_without_writer" for dataset_id in rule_datasets_changed)
 
-    if blocking:
+    if official_numbers["status"] == REVIEW_REQUIRED_STATUS:
+        global_status = REVIEW_REQUIRED_STATUS
+    elif blocking:
         global_status = "BLOCKED"
     elif changed:
         global_status = "READY_TO_PUBLISH"
@@ -585,7 +776,7 @@ def run(args):
         "publication": "Non",
         "publicationDetails": publication_details,
         "apkConcerned": "Non" if not apk_present else "Erreur: APK présent",
-        "simulations": [simulation_report(name) for name in "ABCDEFGH"],
+        "simulations": [simulation_report(name) for name in "ABCDEFGHI"],
     }
 
     try:
@@ -624,7 +815,7 @@ def run(args):
             handle.write(build_markdown(report))
 
     print(json.dumps(report, ensure_ascii=False, indent=2))
-    return 0 if report["status"] in {"SUCCESS", "READY_TO_PUBLISH", "PUBLISHED"} else 2
+    return 0 if report["status"] in {"SUCCESS", "READY_TO_PUBLISH", "PUBLISHED", REVIEW_REQUIRED_STATUS} else 2
 
 
 def main():
