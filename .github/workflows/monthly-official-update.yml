@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: "30 3 5 * *"
   workflow_dispatch:
+    inputs:
+      approve_review_fingerprint:
+        description: "SHA-256 one-shot approval for the exact reviewed official_numbers_fr diff"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -39,8 +45,19 @@ jobs:
 
       - name: Check official rule sources and official numbers
         shell: pwsh
+        env:
+          APPROVE_REVIEW_FINGERPRINT: ${{ github.event.inputs.approve_review_fingerprint || '' }}
+          WORKFLOW_EVENT_NAME: ${{ github.event_name }}
         run: |
-          python tools/monthly_official_update.py --build-official-numbers --publish
+          $arguments = @("tools/monthly_official_update.py", "--build-official-numbers", "--publish")
+          if ($env:WORKFLOW_EVENT_NAME -eq "workflow_dispatch") {
+            $arguments += "--workflow-dispatch"
+          }
+          if (-not [string]::IsNullOrWhiteSpace($env:APPROVE_REVIEW_FINGERPRINT)) {
+            $arguments += "--approve-review-fingerprint"
+            $arguments += $env:APPROVE_REVIEW_FINGERPRINT
+          }
+          python @arguments
 
       - name: Verify current public update set
         shell: pwsh

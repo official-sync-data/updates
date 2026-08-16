@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 import argparse
+import csv
 import gzip
 import hashlib
+import io
 import json
 import os
 import re
 import urllib.parse
 import urllib.request
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from datetime import date
 
 DILA_API = "https://api-lannuaire.service-public.gouv.fr/api/explore/v2.1/catalog/datasets/api-lannuaire-administration/records"
 DILA_EXPORT = "https://api-lannuaire.service-public.gouv.fr/api/explore/v2.1/catalog/datasets/api-lannuaire-administration/exports/json"
 FINESS_DATASET_API = "https://www.data.gouv.fr/api/1/datasets/finess-structures-1/"
+FINESS_CATEGORY_CODE_SYSTEM_URL = "https://smt.esante.gouv.fr/fhir/CodeSystem/tre-r397-categorie-entite-geographique-exercice"
+FINESS_CATEGORY_CODE_SYSTEM_CANONICAL = "https://smt.esante.gouv.fr/fhir/CodeSystem/tre-r397-categorie-entite-geographique-exercice"
+FINESS_COMMUNE_TABS_URL = "https://mos.esante.gouv.fr/NOS/TRE_R13-CommuneOM/TRE_R13-CommuneOM.tabs"
 TODAY = date.today().isoformat()
 
 
@@ -84,16 +89,20 @@ def parse_embedded_json(value):
     return []
 
 
-def url_json(url):
+def url_bytes(url, accept="application/octet-stream"):
     request = urllib.request.Request(
         url,
         headers={
-            "Accept": "application/json",
+            "Accept": accept,
             "User-Agent": "BloqueurAppelsOfficialNumbersBuilder/1.0",
         },
     )
     with urllib.request.urlopen(request, timeout=60) as response:
-        return json.load(response)
+        return response.read()
+
+
+def url_json(url, accept="application/json"):
+    return json.loads(url_bytes(url, accept).decode("utf-8-sig"))
 
 
 def download_file(url, target_path):
@@ -124,6 +133,107 @@ def clean_text(value):
 def title_city(value):
     value = clean_text(value)
     return value.title() if value else ""
+
+
+def iter_fhir_concepts(concepts):
+    for concept in concepts or []:
+        yield concept
+        yield from iter_fhir_concepts(concept.get("concept"))
+
+
+def fhir_concept_status(concept):
+    for item in concept.get("property") or []:
+        if item.get("code") == "status":
+            return clean_text(item.get("valueCode")) or "active"
+    return "active"
+
+
+def valid_business_label(value):
+    label = clean_text(value)
+    if not label or label.isdigit() or len(label) > 300:
+        return False
+    lowered = label.lower()
+    if lowered.startswith(("http://", "https://", "{", "[")):
+        return False
+    if re.search(r"</?[a-z][^>]*>", label, flags=re.IGNORECASE):
+        return False
+    return True
+
+
+def load_finess_category_nomenclature():
+    payload = url_json(FINESS_CATEGORY_CODE_SYSTEM_URL, "application/fhir+json")
+    if payload.get("resourceType") != "CodeSystem":
+        raise RuntimeError("Nomenclature FINESS invalide: resourceType")
+    if payload.get("url") != FINESS_CATEGORY_CODE_SYSTEM_CANONICAL:
+        raise RuntimeError("Nomenclature FINESS invalide: URL canonique")
+    labels = {}
+    statuses = {}
+    invalid = []
+    for concept in iter_fhir_concepts(payload.get("concept")):
+        code = clean_text(concept.get("code"))
+        label = clean_text(concept.get("display"))
+        if not code:
+            continue
+        if not valid_business_label(label):
+            invalid.append(code)
+            continue
+        labels[code] = label
+        statuses[code] = fhir_concept_status(concept)
+    if not labels:
+        raise RuntimeError("Nomenclature FINESS vide")
+    return labels, statuses, {
+        "source": FINESS_CATEGORY_CODE_SYSTEM_URL,
+        "canonical": payload.get("url"),
+        "version": clean_text(payload.get("version")),
+        "date": clean_text(payload.get("date")),
+        "conceptCount": len(labels),
+        "invalidConceptCodes": sorted(invalid),
+    }
+
+
+def load_finess_commune_nomenclature():
+    text = url_bytes(FINESS_COMMUNE_TABS_URL, "text/plain").decode("utf-8-sig")
+    rows = list(csv.reader(io.StringIO(text), delimiter=";"))
+    if len(rows) < 4 or len(rows[1]) < 8:
+        raise RuntimeError("Nomenclature des communes FINESS invalide")
+    labels = {}
+    active = set()
+    for row in rows[3:]:
+        if len(row) < 8:
+            continue
+        code = clean_text(row[1])
+        label = clean_text(row[4])
+        date_end = clean_text(row[6])
+        if not code or not valid_business_label(label):
+            continue
+        if code not in labels or not date_end:
+            labels[code] = label
+        if not date_end:
+            active.add(code)
+    if not labels:
+        raise RuntimeError("Nomenclature des communes FINESS vide")
+    return labels, {
+        "source": FINESS_COMMUNE_TABS_URL,
+        "version": clean_text(rows[1][7]),
+        "date": clean_text(rows[1][7]),
+        "conceptCount": len(labels),
+        "activeConceptCount": len(active),
+    }
+
+
+def finess_city(address, commune_labels, city_stats):
+    city = title_city(address.get("ligneAcheminement"))
+    if city:
+        city_stats["fromLigneAcheminement"] += 1
+        return city
+    commune_code = clean_text(address.get("cogCommune"))
+    if commune_code and commune_code in commune_labels:
+        city_stats["fromCogCommune"] += 1
+        return clean_text(commune_labels[commune_code])
+    city_stats["unresolved"] += 1
+    if commune_code:
+        city_stats["unresolvedCodes"][commune_code] += 1
+    return ""
 
 
 def source_rank(source):
@@ -169,6 +279,9 @@ def add_candidate(groups, rejected, raw):
         source["validated"] = True
     if raw.get("finessJuridique"):
         source["finessJuridique"] = clean_text(raw.get("finessJuridique"))
+    if raw.get("categoryCode"):
+        source["categoryCode"] = clean_text(raw.get("categoryCode"))
+        source["categoryCodeSystem"] = clean_text(raw.get("categoryCodeSystem"))
     candidate = {
         "normalizedNumber": normalized,
         "displayName": clean_text(raw.get("displayName")),
@@ -176,6 +289,8 @@ def add_candidate(groups, rejected, raw):
         "postalCode": postal_code,
         "department": clean_text(raw.get("department")) or department_from_postal_code(postal_code),
         "category": clean_text(raw.get("category")),
+        "categoryCode": clean_text(raw.get("categoryCode")),
+        "categoryCodeSystem": clean_text(raw.get("categoryCodeSystem")),
         "status": "ACTIVE",
         "sources": [source],
     }
@@ -260,7 +375,7 @@ def latest_finess_url():
     return selected.get("url") or selected.get("latest")
 
 
-def fetch_finess(groups, rejected, limit, cache_dir, required_numbers):
+def fetch_finess(groups, rejected, limit, cache_dir, required_numbers, category_labels, category_statuses, commune_labels):
     url = latest_finess_url()
     os.makedirs(cache_dir, exist_ok=True)
     file_name = os.path.basename(urllib.parse.urlparse(url).path) or "finess-structures.json.gz"
@@ -271,6 +386,14 @@ def fetch_finess(groups, rejected, limit, cache_dir, required_numbers):
         payload = json.load(handle)
     added = 0
     stats = new_stats()
+    category_codes = Counter()
+    unresolved_category_codes = Counter()
+    city_stats = {
+        "fromLigneAcheminement": 0,
+        "fromCogCommune": 0,
+        "unresolved": 0,
+        "unresolvedCodes": Counter(),
+    }
     found_required = set()
     for pmej in payload.get("pmej", []):
         stats["examined"] += 1
@@ -294,7 +417,7 @@ def fetch_finess(groups, rejected, limit, cache_dir, required_numbers):
                         "entityType": "PMEJ",
                         "phone": phone,
                         "displayName": pmej_info.get("denominationPm") or pmej_info.get("denominationLonguePmSmsse"),
-                        "city": address.get("ligneAcheminement"),
+                        "city": finess_city(address, commune_labels, city_stats),
                         "postalCode": address.get("codePostal"),
                         "department": department_from_postal_code(address.get("codePostal")),
                         "category": "FINESS PMEJ",
@@ -328,6 +451,11 @@ def fetch_finess(groups, rejected, limit, cache_dir, required_numbers):
                     if not should_add:
                         continue
                     address = (ege.get("adresse") or [{}])[0]
+                    category_code = clean_text(ege.get("categorieentiteGeographiqueExercice"))
+                    category_label = category_labels.get(category_code, "")
+                    category_codes[category_code] += 1
+                    if not category_label:
+                        unresolved_category_codes[category_code or "<empty>"] += 1
                     before = len(rejected)
                     add_candidate(groups, rejected, {
                         "authority": "FINESS",
@@ -335,10 +463,12 @@ def fetch_finess(groups, rejected, limit, cache_dir, required_numbers):
                         "entityType": "EGE",
                         "phone": phone,
                         "displayName": ege_info.get("nomEgeLong") or ege_info.get("nomEgeCourt"),
-                        "city": address.get("ligneAcheminement"),
+                        "city": finess_city(address, commune_labels, city_stats),
                         "postalCode": address.get("codePostal"),
                         "department": department_from_postal_code(address.get("codePostal")),
-                        "category": "FINESS categorie " + clean_text(ege.get("categorieentiteGeographiqueExercice")),
+                        "category": category_label,
+                        "categoryCode": category_code,
+                        "categoryCodeSystem": FINESS_CATEGORY_CODE_SYSTEM_CANONICAL,
                         "status": "ACTIVE",
                         "lastSeenDate": TODAY,
                     })
@@ -355,6 +485,24 @@ def fetch_finess(groups, rejected, limit, cache_dir, required_numbers):
                     stats["rejectedNumbers"] += 1
         if limit and added >= limit and found_required == required_numbers:
             break
+    stats["categoryCodes"] = [
+        {
+            "code": code,
+            "label": category_labels.get(code, ""),
+            "occurrences": count,
+            "resolved": bool(category_labels.get(code)),
+            "status": category_statuses.get(code, "unknown"),
+        }
+        for code, count in sorted(category_codes.items())
+    ]
+    stats["categoryCodeCount"] = len(category_codes)
+    stats["unresolvedCategoryCodes"] = dict(sorted(unresolved_category_codes.items()))
+    stats["cityResolution"] = {
+        "fromLigneAcheminement": city_stats["fromLigneAcheminement"],
+        "fromCogCommune": city_stats["fromCogCommune"],
+        "unresolved": city_stats["unresolved"],
+        "unresolvedCodes": dict(sorted(city_stats["unresolvedCodes"].items())),
+    }
     return stats
 
 
@@ -394,7 +542,7 @@ def build_entries(groups):
         entry = groups[number]
         entry["id"] = stable_id(number)
         ordered = OrderedDict()
-        for key in ("id", "normalizedNumber", "displayName", "city", "postalCode", "department", "category", "status", "sources"):
+        for key in ("id", "normalizedNumber", "displayName", "city", "postalCode", "department", "category", "categoryCode", "categoryCodeSystem", "status", "sources"):
             ordered[key] = entry.get(key, "" if key != "sources" else [])
         entries.append(ordered)
     return entries
@@ -409,7 +557,7 @@ def compare(previous, new):
     unchanged = 0
     for number in sorted(set(prev_entries) & set(new_entries)):
         changes = {}
-        for field in ("displayName", "city", "postalCode", "department", "category", "status", "sources"):
+        for field in ("displayName", "city", "postalCode", "department", "category", "categoryCode", "categoryCodeSystem", "status", "sources"):
             if prev_entries[number].get(field) != new_entries[number].get(field):
                 changes[field] = {"previous": prev_entries[number].get(field), "new": new_entries[number].get(field)}
         if changes:
@@ -450,6 +598,25 @@ def build_android_dataset(full_dataset):
         entryCount=len(compact_entries),
         entries=compact_entries,
     )
+
+
+def guard_android_dataset(dataset):
+    errors = []
+    for entry in dataset.get("entries", []):
+        category = clean_text(entry.get("t"))
+        if not category:
+            errors.append("empty_android_category")
+            break
+        if category.startswith("FINESS categorie "):
+            errors.append("technical_finess_category")
+            break
+        if category.isdigit():
+            errors.append("numeric_android_category")
+            break
+        if not valid_business_label(category):
+            errors.append("invalid_android_category_label")
+            break
+    return errors
 
 
 def guard(dataset, previous, large_change_explanation=""):
@@ -510,10 +677,37 @@ def main():
     required_numbers.discard(None)
     groups = OrderedDict()
     rejected = []
+    category_labels, category_statuses, category_nomenclature = load_finess_category_nomenclature()
+    commune_labels, commune_nomenclature = load_finess_commune_nomenclature()
     dila_stats = fetch_dila(groups, rejected, args.dila_limit)
-    finess_stats = fetch_finess(groups, rejected, args.finess_limit, cache_dir, required_numbers)
+    finess_stats = fetch_finess(
+        groups,
+        rejected,
+        args.finess_limit,
+        cache_dir,
+        required_numbers,
+        category_labels,
+        category_statuses,
+        commune_labels,
+    )
     fhf_validated = apply_fhf_overrides(groups, rejected, overrides_path)
     entries = build_entries(groups)
+    final_category_codes = Counter(
+        entry.get("categoryCode")
+        for entry in entries
+        if entry.get("categoryCode")
+    )
+    finess_stats["finalCategoryCodes"] = [
+        {
+            "code": code,
+            "label": category_labels.get(code, ""),
+            "occurrences": count,
+            "resolved": bool(category_labels.get(code)),
+            "status": category_statuses.get(code, "unknown"),
+        }
+        for code, count in sorted(final_category_codes.items())
+    ]
+    finess_stats["finalCategoryCodeCount"] = len(final_category_codes)
     full_dataset = OrderedDict(
         schemaVersion=1,
         datasetId="official_numbers_fr",
@@ -530,12 +724,17 @@ def main():
     if args.dila_limit == 0 and args.finess_limit == 0:
         large_change_explanation = "Generation complete demandee: limites de test DILA/FINESS supprimees."
     errors = guard(full_dataset, previous, large_change_explanation)
+    errors.extend(guard_android_dataset(android_dataset))
+    if finess_stats["unresolvedCategoryCodes"]:
+        errors.append("unresolved_finess_category_codes")
     diff = compare(previous or {"entries": []}, full_dataset)
     diff["generationBlocked"] = bool(errors)
     diff["guardErrors"] = errors
     diff["largeChangeExplanation"] = large_change_explanation
     diff["rejected"] = rejected
     diff["sourceStats"] = {"DILA": dila_stats, "FINESS": finess_stats, "FHF_validated": fhf_validated}
+    diff["finessCategoryNomenclature"] = category_nomenclature
+    diff["finessCommuneNomenclature"] = commune_nomenclature
     diff["sourceRawCounts"] = {
         "DILA": dila_stats["validNumbers"],
         "FINESS": finess_stats["validNumbers"],

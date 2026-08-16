@@ -2,8 +2,10 @@
 import argparse
 import gzip
 import hashlib
+import hmac
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -32,6 +34,8 @@ AUTOMATED_RULE_DATASETS = {
 }
 PRESERVE_STATUSES = {"MANUAL_REQUIRED", "TEMPORARILY_UNAVAILABLE"}
 REVIEW_REQUIRED_STATUS = "BLOCKED_REVIEW_REQUIRED"
+REVIEW_MISMATCH_STATUS = "BLOCKED_REVIEW_MISMATCH"
+REVIEW_APPROVED_STATUS = "REVIEW_APPROVED"
 OFFICIAL_NUMBERS_AUTO_CHANGE_RATIO_LIMIT = 0.005
 OFFICIAL_NUMBERS_DROP_RATIO_LIMIT = 0.20
 OFFICIAL_NUMBERS_GROWTH_RATIO_LIMIT = 0.50
@@ -166,10 +170,58 @@ def official_numbers_functional_entries(dataset_json):
     return functional_entries
 
 
+def functional_entries_sha256(entries):
+    digest = hashlib.sha256()
+    for number in sorted(entries):
+        encoded = json.dumps(
+            entries[number],
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        digest.update(len(encoded).to_bytes(8, "big"))
+        digest.update(encoded)
+    return digest.hexdigest()
+
+
+def build_review_fingerprint(comparison):
+    payload = {
+        "datasetId": "official_numbers_fr",
+        "oldFunctionalSha256": comparison.get("oldFunctionalSha256", ""),
+        "newFunctionalSha256": comparison.get("newFunctionalSha256", ""),
+        "addedCount": int(comparison.get("addedCount", 0)),
+        "removedCount": int(comparison.get("removedCount", 0)),
+        "modifiedCount": int(comparison.get("modifiedCount", 0)),
+        "oldEntryCount": int(comparison.get("oldEntryCount", 0)),
+        "newEntryCount": int(comparison.get("newEntryCount", 0)),
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def apply_review_gate(comparison, approved_fingerprint, safety_errors=None):
+    safety_errors = list(safety_errors or [])
+    if safety_errors:
+        return "BLOCKED", "Contrôles de sécurité refusés: " + "; ".join(safety_errors)
+    if comparison.get("status") != REVIEW_REQUIRED_STATUS:
+        return comparison.get("status", "BLOCKED"), comparison.get("error", "")
+    expected = comparison.get("reviewFingerprint", "")
+    provided = (approved_fingerprint or "").strip().lower()
+    if not provided:
+        return REVIEW_REQUIRED_STATUS, comparison.get("error", "")
+    if not expected or not hmac.compare_digest(provided, expected.lower()):
+        return (
+            REVIEW_MISMATCH_STATUS,
+            "Empreinte de validation différente du diff official_numbers_fr courant.",
+        )
+    return REVIEW_APPROVED_STATUS, ""
+
+
 def compare_official_numbers_compact(new_compact_path):
     existing_compact_path = DATASETS_DIR / "official_numbers_fr.json.gz"
     if not existing_compact_path.exists():
-        new_count = len(official_numbers_functional_entries(read_json(new_compact_path)))
+        new_entries = official_numbers_functional_entries(read_json(new_compact_path))
+        new_count = len(new_entries)
         return {
             "status": "CHANGED",
             "addedCount": new_count,
@@ -179,6 +231,9 @@ def compare_official_numbers_compact(new_compact_path):
             "newEntryCount": new_count,
             "changeCount": new_count,
             "changeRatio": 0.0,
+            "oldFunctionalSha256": functional_entries_sha256({}),
+            "newFunctionalSha256": functional_entries_sha256(new_entries),
+            "reviewFingerprint": "",
             "error": "",
         }
 
@@ -220,6 +275,8 @@ def compare_official_numbers_compact(new_compact_path):
     removed = len(old_numbers - new_numbers)
     old_count = len(old_entries)
     new_count = len(new_entries)
+    old_functional_sha256 = functional_entries_sha256(old_entries)
+    new_functional_sha256 = functional_entries_sha256(new_entries)
     change_count = added + removed + modified
     change_ratio = change_count / old_count if old_count else 0.0
     status = "CHANGED" if added or removed or modified else "UNCHANGED"
@@ -242,7 +299,7 @@ def compare_official_numbers_compact(new_compact_path):
             "PUBLICATION BLOQUÉE — VALIDATION HUMAINE REQUISE: "
             f"official_numbers_fr change ratio {change_ratio:.4%} exceeds 0.5%."
         )
-    return {
+    comparison = {
         "status": status,
         "addedCount": added,
         "removedCount": removed,
@@ -251,25 +308,86 @@ def compare_official_numbers_compact(new_compact_path):
         "newEntryCount": new_count,
         "changeCount": change_count,
         "changeRatio": change_ratio,
+        "oldFunctionalSha256": old_functional_sha256,
+        "newFunctionalSha256": new_functional_sha256,
         "error": error,
     }
+    comparison["reviewFingerprint"] = (
+        build_review_fingerprint(comparison)
+        if status == REVIEW_REQUIRED_STATUS
+        else ""
+    )
+    return comparison
 
 
-def official_numbers_review_fingerprint(result):
-    payload = {
-        "datasetId": "official_numbers_fr",
-        "oldEntryCount": result.get("oldEntryCount", 0),
-        "entryCount": result.get("entryCount", 0),
-        "addedCount": result.get("addedCount", 0),
-        "removedCount": result.get("removedCount", 0),
-        "modifiedCount": result.get("modifiedCount", 0),
-        "changeRatio": round(float(result.get("changeRatio", 0.0)), 8),
+def validate_official_numbers_migration(new_compact_path, build_report):
+    dataset = read_json(new_compact_path)
+    entries = official_numbers_functional_entries(dataset)
+    technical_categories = 0
+    numeric_categories = 0
+    empty_categories = 0
+    invalid_numbers = 0
+    for number, entry in entries.items():
+        if not re.fullmatch(r"\+33\d{9}", number):
+            invalid_numbers += 1
+        category = str(entry.get("t") or "").strip()
+        if category.startswith("FINESS categorie "):
+            technical_categories += 1
+        if category.isdigit():
+            numeric_categories += 1
+        if not category:
+            empty_categories += 1
+
+    finess_stats = build_report.get("sourceStats", {}).get("FINESS", {})
+    final_codes = finess_stats.get("finalCategoryCodes") or []
+    unresolved_codes = finess_stats.get("unresolvedCategoryCodes") or {}
+    resolved_codes = sum(1 for item in final_codes if item.get("resolved"))
+    city_resolution = finess_stats.get("cityResolution") or {}
+    edmond = entries.get("+33442847000")
+    expected_edmond = {
+        "n": "+33442847000",
+        "d": "Centre hospitalier Edmond Garcin",
+        "c": "Aubagne",
+        "t": "Hôpital / Centre hospitalier",
     }
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
+
+    errors = []
+    if dataset.get("entryCount") != len(entries) or not entries:
+        errors.append("entryCount official_numbers_fr invalide")
+    if technical_categories:
+        errors.append(f"{technical_categories} catégories FINESS techniques restantes")
+    if numeric_categories:
+        errors.append(f"{numeric_categories} catégories uniquement numériques restantes")
+    if empty_categories:
+        errors.append(f"{empty_categories} catégories vides restantes")
+    if invalid_numbers:
+        errors.append(f"{invalid_numbers} normalizedNumber invalides")
+    if unresolved_codes:
+        errors.append(f"codes FINESS non résolus: {sorted(unresolved_codes)}")
+    if not final_codes:
+        errors.append("aucun code FINESS final dans le rapport de génération")
+    if len(final_codes) != resolved_codes:
+        errors.append("certains codes FINESS finaux ne sont pas résolus")
+    if edmond != expected_edmond:
+        errors.append("contrôle +33442847000 non conforme")
+
+    return {
+        "entryCount": len(entries),
+        "categoryCodeCount": len(final_codes),
+        "resolvedCategoryCodeCount": resolved_codes,
+        "unresolvedCategoryCodes": unresolved_codes,
+        "technicalCategoryCount": technical_categories,
+        "numericCategoryCount": numeric_categories,
+        "emptyCategoryCount": empty_categories,
+        "invalidNumberCount": invalid_numbers,
+        "citiesResolvedFromCogCommune": int(city_resolution.get("fromCogCommune", 0)),
+        "unresolvedCities": int(city_resolution.get("unresolved", 0)),
+        "edmondGarcin": edmond,
+        "errors": errors,
+    }
 
 
-def run_official_numbers_builder(enabled, keep_output=False):
+def run_official_numbers_builder(enabled, keep_output=False, approved_review_fingerprint=""):
     result = {
         "datasetId": "official_numbers_fr",
         "status": "SKIPPED",
@@ -290,6 +408,10 @@ def run_official_numbers_builder(enabled, keep_output=False):
         "reviewRequired": False,
         "reviewReason": "",
         "reviewFingerprint": "",
+        "oldFunctionalSha256": "",
+        "newFunctionalSha256": "",
+        "reviewApproved": False,
+        "migrationValidation": {},
     }
     if not enabled:
         result["error"] = "Skipped in local safe validation mode."
@@ -337,17 +459,41 @@ def run_official_numbers_builder(enabled, keep_output=False):
             compact_comparison = compare_official_numbers_compact(
                 temp_root / "datasets" / "official_numbers_fr.json"
             )
-            result["status"] = compact_comparison["status"]
             result["addedCount"] = compact_comparison["addedCount"]
             result["removedCount"] = compact_comparison["removedCount"]
             result["modifiedCount"] = compact_comparison["modifiedCount"]
             result["changeCount"] = compact_comparison["changeCount"]
             result["changeRatio"] = compact_comparison["changeRatio"]
-            result["reviewRequired"] = compact_comparison["status"] == REVIEW_REQUIRED_STATUS
-            if compact_comparison["error"]:
-                result["error"] = compact_comparison["error"]
-                if result["reviewRequired"]:
-                    result["reviewReason"] = compact_comparison["error"]
+            result["oldFunctionalSha256"] = compact_comparison.get("oldFunctionalSha256", "")
+            result["newFunctionalSha256"] = compact_comparison.get("newFunctionalSha256", "")
+            result["reviewFingerprint"] = compact_comparison.get("reviewFingerprint", "")
+            try:
+                migration_validation = validate_official_numbers_migration(
+                    temp_root / "datasets" / "official_numbers_fr.json",
+                    build_report,
+                )
+            except Exception as exc:
+                result["status"] = "BLOCKED"
+                result["error"] = (
+                    "Validation official_numbers_fr impossible: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                return result
+            result["migrationValidation"] = migration_validation
+            gated_status, gated_error = apply_review_gate(
+                compact_comparison,
+                approved_review_fingerprint,
+                migration_validation["errors"],
+            )
+            result["status"] = gated_status
+            result["error"] = gated_error
+            result["reviewRequired"] = gated_status in {
+                REVIEW_REQUIRED_STATUS,
+                REVIEW_MISMATCH_STATUS,
+            }
+            result["reviewApproved"] = gated_status == REVIEW_APPROVED_STATUS
+            if result["reviewRequired"]:
+                result["reviewReason"] = gated_error
             dila_stats = result.get("sourceStats", {}).get("DILA", {})
             finess_stats = result.get("sourceStats", {}).get("FINESS", {})
             if int(dila_stats.get("validNumbers", 0)) <= 0:
@@ -358,8 +504,6 @@ def run_official_numbers_builder(enabled, keep_output=False):
                 result["status"] = "BLOCKED"
                 result["error"] = "official_numbers_fr source FINESS disappeared."
                 result["reviewRequired"] = False
-            if result["reviewRequired"]:
-                result["reviewFingerprint"] = official_numbers_review_fingerprint(result)
         else:
             result["status"] = "BLOCKED"
             result["error"] = "Build report absent."
@@ -566,7 +710,7 @@ def publish_if_needed(report):
     publication["attempted"] = True
     numbers = report["officialNumbers"]
     outputs = numbers.get("outputFiles", {})
-    if numbers.get("status") == "CHANGED":
+    if numbers.get("status") in {"CHANGED", REVIEW_APPROVED_STATUS}:
         gz_source = outputs.get("official_numbers_fr.json.gz")
         if not gz_source:
             raise RuntimeError("official_numbers_fr.json.gz généré introuvable.")
@@ -601,20 +745,27 @@ def publish_if_needed(report):
     return publication
 
 
-def simulation_report(case_name):
-    cases = {
-        "A": ("SUCCESS", "0 modification"),
-        "B": ("READY_TO_PUBLISH", "100 modifications sur 144576, publication automatique autorisable"),
-        "C": ("READY_TO_PUBLISH", "722 modifications sur 144576, sous le seuil de 0,5 %"),
-        "D": (REVIEW_REQUIRED_STATUS, "723 modifications sur 144576, validation humaine requise"),
-        "E": (REVIEW_REQUIRED_STATUS, "2249 modifications sur 144576, validation humaine requise"),
-        "F": ("BLOCKED", "dataset vide refusé"),
-        "G": ("BLOCKED", "FINESS indisponible"),
-        "H": ("ERROR", "verify_update.ps1 échoue"),
-        "I": ("BLOCKED", "APK/FULL/clé privée détecté dans le diff"),
+def review_gate_simulations():
+    base = {
+        "status": REVIEW_REQUIRED_STATUS,
+        "reviewFingerprint": "a" * 64,
+        "error": "validation humaine requise",
     }
-    status, detail = cases[case_name]
-    return {"case": case_name, "status": status, "detail": detail}
+    changed = dict(base, reviewFingerprint="b" * 64)
+    cases = [
+        ("A", *apply_review_gate(base, ""), "cron sans fingerprint"),
+        ("B", *apply_review_gate(base, ""), "workflow_dispatch sans fingerprint"),
+        ("C", *apply_review_gate(base, "c" * 64), "mauvais fingerprint"),
+        ("D", *apply_review_gate(base, "a" * 64), "fingerprint correct"),
+        ("E", *apply_review_gate(changed, "a" * 64), "contenu modifié après validation"),
+        ("F", "ERROR", "verify_update.ps1 échoue", "fingerprint correct mais vérification en erreur"),
+        ("G", *apply_review_gate(base, "a" * 64, ["catégorie FINESS technique"]), "garde-fou catégorie"),
+        ("H", "BLOCKED", "APK/FULL/clé privée détecté", "garde-fou fichiers interdits"),
+    ]
+    return [
+        {"case": name, "status": status, "detail": detail or context}
+        for name, status, detail, context in cases
+    ]
 
 
 def sum_change_counts(rule_reports, official_numbers):
@@ -673,6 +824,8 @@ def build_markdown(report):
             f"- FHF override conservé : {numbers['fhfOverridePreserved']}",
             f"- FULL exclu de public : {numbers['fullExcludedFromPublic']}",
             f"- Empreinte revue unique : {numbers.get('reviewFingerprint') or 'N/A'}",
+            f"- SHA-256 fonctionnel ancien : {numbers.get('oldFunctionalSha256') or 'N/A'}",
+            f"- SHA-256 fonctionnel nouveau : {numbers.get('newFunctionalSha256') or 'N/A'}",
             "",
             "## Simulations locales",
         ]
@@ -694,7 +847,7 @@ def build_markdown(report):
     )
     if report["blockingDatasets"]:
         lines.append(f"- Anomalies bloquantes : {', '.join(report['blockingDatasets'])}")
-    if report["status"] == REVIEW_REQUIRED_STATUS:
+    if numbers.get("status") == REVIEW_REQUIRED_STATUS:
         lines.extend(
             [
                 "",
@@ -712,6 +865,32 @@ def build_markdown(report):
                 f"- Empreinte revue unique : {numbers.get('reviewFingerprint') or 'N/A'}",
             ]
         )
+    elif numbers.get("status") == REVIEW_MISMATCH_STATUS:
+        lines.extend(
+            [
+                "",
+                "## PUBLICATION BLOQUÉE — EMPREINTE DE REVUE INCORRECTE",
+                "- Dataset : official_numbers_fr",
+                f"- Empreinte attendue : {numbers.get('reviewFingerprint') or 'N/A'}",
+                "- Publication : NON",
+                "- Données publiques précédentes : CONSERVÉES",
+                "- Seuil permanent : 0,5 %",
+            ]
+        )
+    elif numbers.get("status") == REVIEW_APPROVED_STATUS:
+        lines.extend(
+            [
+                "",
+                "## REVIEW_APPROVED",
+                "- Dataset : official_numbers_fr",
+                f"- Fingerprint approuvé : {numbers.get('reviewFingerprint') or 'N/A'}",
+                f"- Modifications : {numbers.get('modifiedCount', 0)}",
+                f"- Taux : {numbers.get('changeRatio', 0.0) * 100:.2f} %",
+                "- Migration : Catégories FINESS vers libellés officiels ANS",
+                "- Publication exceptionnelle : AUTORISÉE POUR CE DIFF UNIQUEMENT",
+                "- Seuil permanent : 0,5 %",
+            ]
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -727,12 +906,15 @@ def run(args):
     official_numbers = run_official_numbers_builder(
         args.build_official_numbers,
         keep_output=args.publish,
+        approved_review_fingerprint=args.approve_review_fingerprint,
     )
     if official_numbers["status"] == "BLOCKED":
         blocking.append("official_numbers_fr")
     elif official_numbers["status"] == REVIEW_REQUIRED_STATUS:
         blocking.append("official_numbers_fr_review_required")
-    elif official_numbers["status"] == "CHANGED":
+    elif official_numbers["status"] == REVIEW_MISMATCH_STATUS:
+        blocking.append("official_numbers_fr_review_mismatch")
+    elif official_numbers["status"] in {"CHANGED", REVIEW_APPROVED_STATUS}:
         changed.append("official_numbers_fr")
     elif official_numbers["status"] == "UNCHANGED":
         unchanged.append("official_numbers_fr")
@@ -745,6 +927,8 @@ def run(args):
 
     if official_numbers["status"] == REVIEW_REQUIRED_STATUS:
         global_status = REVIEW_REQUIRED_STATUS
+    elif official_numbers["status"] == REVIEW_MISMATCH_STATUS:
+        global_status = REVIEW_MISMATCH_STATUS
     elif blocking:
         global_status = "BLOCKED"
     elif changed:
@@ -776,7 +960,7 @@ def run(args):
         "publication": "Non",
         "publicationDetails": publication_details,
         "apkConcerned": "Non" if not apk_present else "Erreur: APK présent",
-        "simulations": [simulation_report(name) for name in "ABCDEFGHI"],
+        "simulations": review_gate_simulations(),
     }
 
     try:
@@ -815,7 +999,13 @@ def run(args):
             handle.write(build_markdown(report))
 
     print(json.dumps(report, ensure_ascii=False, indent=2))
-    return 0 if report["status"] in {"SUCCESS", "READY_TO_PUBLISH", "PUBLISHED", REVIEW_REQUIRED_STATUS} else 2
+    return 0 if report["status"] in {
+        "SUCCESS",
+        "READY_TO_PUBLISH",
+        "PUBLISHED",
+        REVIEW_REQUIRED_STATUS,
+        REVIEW_MISMATCH_STATUS,
+    } else 2
 
 
 def main():
@@ -830,6 +1020,11 @@ def main():
         "--publish",
         action="store_true",
         help="Publish a validated READY_TO_PUBLISH result by committing and pushing allowed files.",
+    )
+    parser.add_argument(
+        "--approve-review-fingerprint",
+        default="",
+        help="One-shot SHA-256 approval for the exact current official_numbers_fr diff.",
     )
     args = parser.parse_args()
     return run(args)
