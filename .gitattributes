@@ -1,2 +1,5 @@
 manifest.sig -text -diff -merge
 manifest.json -text -diff -merge
+datasets/*.json -text -diff -merge
+datasets/*.json.gz -text -diff -merge
+official_update_public_key.pem -text -diff -merge

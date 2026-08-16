@@ -1,0 +1,17 @@
+private/
+*.pem
+!official_update_public_key.pem
+*.private.pem
+official_update_private_key.pem
+manifest.sig.raw
+official_numbers_fr_full.json
+*.tmp
+*.tmp.*
+*.bak
+*.bak.*
+*.db
+*.db-wal
+*.db-shm
+reports/
+.cache/
+__pycache__/

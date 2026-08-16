@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "official_numbers_fr_fhf_overrides",
+  "lastCheckedDate": "2026-08-15",
+  "entries": [
+    {
+      "normalizedNumber": "+33442847000",
+      "displayName": "Centre hospitalier Edmond Garcin",
+      "city": "Aubagne",
+      "postalCode": "13400",
+      "department": "13",
+      "category": "Hôpital / Centre hospitalier",
+      "status": "ACTIVE",
+      "validated": true,
+      "sources": [
+        {
+          "authority": "FHF",
+          "sourceId": "structure298",
+          "entityType": "HOSPITAL",
+          "url": "https://etablissements.fhf.fr/annuaire/structure/structure298",
+          "lastSeenDate": "2026-08-15",
+          "finessJuridique": "130781446"
+        }
+      ]
+    }
+  ]
+}

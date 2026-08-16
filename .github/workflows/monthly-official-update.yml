@@ -1,0 +1,64 @@
+name: Monthly official data update
+
+on:
+  schedule:
+    - cron: "30 3 5 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monthly-official-update
+  cancel-in-progress: false
+
+jobs:
+  check-official-data:
+    name: Check official datasets
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Prepare temporary signing key when available
+        shell: pwsh
+        env:
+          OFFICIAL_UPDATE_PRIVATE_KEY_PEM: ${{ secrets.OFFICIAL_UPDATE_PRIVATE_KEY_PEM }}
+        run: |
+          if (-not [string]::IsNullOrWhiteSpace($env:OFFICIAL_UPDATE_PRIVATE_KEY_PEM)) {
+            $keyFile = Join-Path $env:RUNNER_TEMP "official_update_private_key.pem"
+            [System.IO.File]::WriteAllText($keyFile, $env:OFFICIAL_UPDATE_PRIVATE_KEY_PEM, [System.Text.Encoding]::ASCII)
+            "OFFICIAL_UPDATE_PRIVATE_KEY_FILE=$keyFile" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          }
+
+      - name: Check official rule sources and official numbers
+        shell: pwsh
+        run: |
+          python tools/monthly_official_update.py --build-official-numbers
+
+      - name: Verify current public update set
+        shell: pwsh
+        run: |
+          ./tools/verify_update.ps1
+
+      - name: Confirm no APK is published
+        shell: pwsh
+        run: |
+          $apk = Get-ChildItem -LiteralPath public -Recurse -File -Filter *.apk -ErrorAction SilentlyContinue
+          if ($apk) {
+            Write-Error "APK found in public/, aborting."
+          fi
+
+      - name: Cleanup temporary signing key
+        if: always()
+        shell: pwsh
+        run: |
+          if (-not [string]::IsNullOrWhiteSpace($env:OFFICIAL_UPDATE_PRIVATE_KEY_FILE) -and (Test-Path -LiteralPath $env:OFFICIAL_UPDATE_PRIVATE_KEY_FILE)) {
+            Remove-Item -LiteralPath $env:OFFICIAL_UPDATE_PRIVATE_KEY_FILE -Force
+          }
