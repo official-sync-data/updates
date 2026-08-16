@@ -10,7 +10,7 @@ import re
 import urllib.parse
 import urllib.request
 from collections import Counter, OrderedDict
-from datetime import date
+from datetime import date, datetime, timezone
 
 DILA_API = "https://api-lannuaire.service-public.gouv.fr/api/explore/v2.1/catalog/datasets/api-lannuaire-administration/records"
 DILA_EXPORT = "https://api-lannuaire.service-public.gouv.fr/api/explore/v2.1/catalog/datasets/api-lannuaire-administration/exports/json"
@@ -72,6 +72,16 @@ def write_compact_json(path, data):
 def write_gzip(path, payload):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with gzip.open(path, "wb") as handle:
+        handle.write(payload)
+
+
+def sha256_bytes(payload):
+    return hashlib.sha256(payload).hexdigest()
+
+
+def write_bytes(path, payload):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as handle:
         handle.write(payload)
 
 
@@ -160,8 +170,8 @@ def valid_business_label(value):
     return True
 
 
-def load_finess_category_nomenclature():
-    payload = url_json(FINESS_CATEGORY_CODE_SYSTEM_URL, "application/fhir+json")
+def load_finess_category_nomenclature(payload=None):
+    payload = payload or url_json(FINESS_CATEGORY_CODE_SYSTEM_URL, "application/fhir+json")
     if payload.get("resourceType") != "CodeSystem":
         raise RuntimeError("Nomenclature FINESS invalide: resourceType")
     if payload.get("url") != FINESS_CATEGORY_CODE_SYSTEM_CANONICAL:
@@ -191,8 +201,8 @@ def load_finess_category_nomenclature():
     }
 
 
-def load_finess_commune_nomenclature():
-    text = url_bytes(FINESS_COMMUNE_TABS_URL, "text/plain").decode("utf-8-sig")
+def load_finess_commune_nomenclature(text=None):
+    text = text or url_bytes(FINESS_COMMUNE_TABS_URL, "text/plain").decode("utf-8-sig")
     rows = list(csv.reader(io.StringIO(text), delimiter=";"))
     if len(rows) < 4 or len(rows[1]) < 8:
         raise RuntimeError("Nomenclature des communes FINESS invalide")
@@ -320,9 +330,13 @@ def new_stats():
     }
 
 
-def fetch_dila(groups, rejected, limit):
+def fetch_dila(groups, rejected, limit, frozen_records=None):
     stats = new_stats()
-    if limit:
+    if frozen_records is not None:
+        if isinstance(frozen_records, dict):
+            frozen_records = frozen_records.get("results", [])
+        records = frozen_records[:limit] if limit else frozen_records
+    elif limit:
         query = urllib.parse.urlencode({"limit": limit, "where": "telephone is not null"})
         payload = url_json(DILA_API + "?" + query)
         records = payload.get("results", [])
@@ -365,23 +379,31 @@ def fetch_dila(groups, rejected, limit):
     return stats
 
 
-def latest_finess_url():
-    metadata = url_json(FINESS_DATASET_API)
+def latest_finess_resource(metadata=None):
+    metadata = metadata or url_json(FINESS_DATASET_API)
     resources = metadata.get("resources", [])
     daily = [r for r in resources if r.get("format") == "json.gz" and "journalier" in r.get("title", "")]
     selected = daily[0] if daily else next((r for r in resources if r.get("format") == "json.gz"), None)
     if not selected:
         raise RuntimeError("FINESS json.gz introuvable")
+    return selected
+
+
+def latest_finess_url(metadata=None):
+    selected = latest_finess_resource(metadata)
     return selected.get("url") or selected.get("latest")
 
 
-def fetch_finess(groups, rejected, limit, cache_dir, required_numbers, category_labels, category_statuses, commune_labels):
-    url = latest_finess_url()
+def fetch_finess(groups, rejected, limit, cache_dir, required_numbers, category_labels, category_statuses, commune_labels, frozen_archive=None):
+    url = latest_finess_url() if frozen_archive is None else ""
     os.makedirs(cache_dir, exist_ok=True)
-    file_name = os.path.basename(urllib.parse.urlparse(url).path) or "finess-structures.json.gz"
-    archive = os.path.join(cache_dir, file_name)
-    if not os.path.exists(archive):
-        download_file(url, archive)
+    if frozen_archive is not None:
+        archive = frozen_archive
+    else:
+        file_name = os.path.basename(urllib.parse.urlparse(url).path) or "finess-structures.json.gz"
+        archive = os.path.join(cache_dir, file_name)
+        if not os.path.exists(archive):
+            download_file(url, archive)
     with gzip.open(archive, "rt", encoding="utf-8") as handle:
         payload = json.load(handle)
     added = 0
@@ -536,6 +558,133 @@ def apply_fhf_overrides(groups, rejected, overrides_path):
     return count
 
 
+def freeze_sources(snapshot_dir, overrides_path, dila_limit=0):
+    os.makedirs(snapshot_dir, exist_ok=True)
+    dila_query = urllib.parse.urlencode(
+        {"where": "telephone is not null", "timezone": "Europe/Paris"}
+    )
+    dila_url = DILA_EXPORT + "?" + dila_query
+    if dila_limit:
+        dila_query = urllib.parse.urlencode(
+            {"limit": dila_limit, "where": "telephone is not null"}
+        )
+        dila_url = DILA_API + "?" + dila_query
+
+    category_bytes = url_bytes(FINESS_CATEGORY_CODE_SYSTEM_URL, "application/fhir+json")
+    commune_bytes = url_bytes(FINESS_COMMUNE_TABS_URL, "text/plain")
+    dila_bytes = url_bytes(dila_url, "application/json")
+    finess_metadata_bytes = url_bytes(FINESS_DATASET_API, "application/json")
+    finess_metadata = json.loads(finess_metadata_bytes.decode("utf-8-sig"))
+    finess_resource = latest_finess_resource(finess_metadata)
+    finess_url = finess_resource.get("url") or finess_resource.get("latest")
+    if not finess_url:
+        raise RuntimeError("URL FINESS json.gz absente")
+    finess_bytes = url_bytes(finess_url, "application/octet-stream")
+    with open(overrides_path, "rb") as handle:
+        fhf_bytes = handle.read()
+
+    files = {
+        "DILA": ("dila.json", dila_bytes, dila_url, {}),
+        "FINESS": (
+            "finess.json.gz",
+            finess_bytes,
+            finess_url,
+            {
+                "date": clean_text(finess_resource.get("last_modified")),
+                "version": clean_text(finess_resource.get("title")),
+            },
+        ),
+        "FINESS_categories": (
+            "finess_categories.json",
+            category_bytes,
+            FINESS_CATEGORY_CODE_SYSTEM_URL,
+            {},
+        ),
+        "FINESS_communes": (
+            "finess_communes.tabs",
+            commune_bytes,
+            FINESS_COMMUNE_TABS_URL,
+            {},
+        ),
+        "FHF": (
+            "fhf_overrides.json",
+            fhf_bytes,
+            "local:sources/official_numbers_fr_fhf_overrides.json",
+            {},
+        ),
+    }
+    source_hashes = OrderedDict(
+        schemaVersion=1,
+        datasetId="official_numbers_fr_sources",
+        snapshotCreatedAt=datetime.now(timezone.utc).isoformat(),
+        sources=OrderedDict(),
+    )
+    for authority, (name, payload, url, extra) in files.items():
+        write_bytes(os.path.join(snapshot_dir, name), payload)
+        metadata = OrderedDict(
+            url=url,
+            sha256=sha256_bytes(payload),
+            sizeBytes=len(payload),
+        )
+        metadata.update(extra)
+        source_hashes["sources"][authority] = metadata
+
+    category_json = json.loads(category_bytes.decode("utf-8-sig"))
+    source_hashes["sources"]["FINESS_categories"].update(
+        version=clean_text(category_json.get("version")),
+        date=clean_text(category_json.get("date")),
+    )
+    commune_rows = list(
+        csv.reader(io.StringIO(commune_bytes.decode("utf-8-sig")), delimiter=";")
+    )
+    commune_version = (
+        clean_text(commune_rows[1][7])
+        if len(commune_rows) > 1 and len(commune_rows[1]) > 7
+        else ""
+    )
+    source_hashes["sources"]["FINESS_communes"].update(
+        version=commune_version,
+        date=commune_version,
+    )
+    fhf_json = json.loads(fhf_bytes.decode("utf-8-sig"))
+    source_hashes["sources"]["FHF"].update(
+        version=clean_text(fhf_json.get("datasetVersion")),
+        date=clean_text(fhf_json.get("lastCheckedDate")),
+    )
+    write_json(os.path.join(snapshot_dir, "source_hashes.json"), source_hashes)
+    return source_hashes
+
+
+def load_frozen_sources(snapshot_dir):
+    required = {
+        "dila": "dila.json",
+        "finess": "finess.json.gz",
+        "categories": "finess_categories.json",
+        "communes": "finess_communes.tabs",
+        "fhf": "fhf_overrides.json",
+        "hashes": "source_hashes.json",
+    }
+    paths = {key: os.path.join(snapshot_dir, name) for key, name in required.items()}
+    missing = [path for path in paths.values() if not os.path.isfile(path)]
+    if missing:
+        raise RuntimeError("Sources figées incomplètes: " + ", ".join(missing))
+    source_hashes = read_json(paths["hashes"]).get("sources", {})
+    hash_mapping = {
+        "DILA": paths["dila"],
+        "FINESS": paths["finess"],
+        "FINESS_categories": paths["categories"],
+        "FINESS_communes": paths["communes"],
+        "FHF": paths["fhf"],
+    }
+    for authority, path in hash_mapping.items():
+        expected = (source_hashes.get(authority) or {}).get("sha256", "")
+        with open(path, "rb") as handle:
+            actual = hashlib.sha256(handle.read()).hexdigest()
+        if not expected or actual != expected:
+            raise RuntimeError(f"SHA source figée invalide: {authority}")
+    return paths
+
+
 def build_entries(groups):
     entries = []
     for number in sorted(groups.keys()):
@@ -652,6 +801,11 @@ def main():
     parser.add_argument("--root", default=root_default)
     parser.add_argument("--dila-limit", type=int, default=0, help="0 parcourt toute la source DILA")
     parser.add_argument("--finess-limit", type=int, default=0, help="0 parcourt toute la source FINESS")
+    parser.add_argument(
+        "--frozen-sources-dir",
+        default="",
+        help="Fige les sources dans ce dossier puis les relit sans nouvel accès réseau.",
+    )
     args = parser.parse_args()
 
     root = os.path.abspath(args.root)
@@ -668,6 +822,12 @@ def main():
         previous = read_json(android_dataset_path)
     else:
         previous = None
+    frozen_paths = None
+    if args.frozen_sources_dir:
+        if not os.path.exists(os.path.join(args.frozen_sources_dir, "source_hashes.json")):
+            freeze_sources(args.frozen_sources_dir, overrides_path, args.dila_limit)
+        frozen_paths = load_frozen_sources(args.frozen_sources_dir)
+        overrides_path = frozen_paths["fhf"]
     overrides = read_json(overrides_path)
     required_numbers = {
         normalize_fr_number(item.get("normalizedNumber"))
@@ -677,9 +837,15 @@ def main():
     required_numbers.discard(None)
     groups = OrderedDict()
     rejected = []
-    category_labels, category_statuses, category_nomenclature = load_finess_category_nomenclature()
-    commune_labels, commune_nomenclature = load_finess_commune_nomenclature()
-    dila_stats = fetch_dila(groups, rejected, args.dila_limit)
+    frozen_categories = read_json(frozen_paths["categories"]) if frozen_paths else None
+    frozen_communes = None
+    if frozen_paths:
+        with open(frozen_paths["communes"], "r", encoding="utf-8-sig") as handle:
+            frozen_communes = handle.read()
+    frozen_dila = read_json(frozen_paths["dila"]) if frozen_paths else None
+    category_labels, category_statuses, category_nomenclature = load_finess_category_nomenclature(frozen_categories)
+    commune_labels, commune_nomenclature = load_finess_commune_nomenclature(frozen_communes)
+    dila_stats = fetch_dila(groups, rejected, args.dila_limit, frozen_dila)
     finess_stats = fetch_finess(
         groups,
         rejected,
@@ -689,6 +855,7 @@ def main():
         category_labels,
         category_statuses,
         commune_labels,
+        frozen_paths["finess"] if frozen_paths else None,
     )
     fhf_validated = apply_fhf_overrides(groups, rejected, overrides_path)
     entries = build_entries(groups)
@@ -756,6 +923,7 @@ def main():
         "sourceStats": diff["sourceStats"],
         "rejected": len(rejected),
         "mergedDuplicates": diff["mergedDuplicates"],
+        "sourceHashes": frozen_paths["hashes"] if frozen_paths else "",
     }, ensure_ascii=False, indent=2))
 
 

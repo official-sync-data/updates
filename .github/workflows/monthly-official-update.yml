@@ -59,6 +59,15 @@ jobs:
           }
           python @arguments
 
+      - name: Upload private official data review artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-data-review-${{ github.run_id }}
+          path: reports/official-data-review/
+          if-no-files-found: ignore
+          retention-days: 30
+
       - name: Verify current public update set
         shell: pwsh
         run: |

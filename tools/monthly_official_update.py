@@ -22,6 +22,7 @@ PUBLIC_DIR = ROOT / "public" if (ROOT / "public").exists() else ROOT
 PUBLIC_DATASETS_DIR = PUBLIC_DIR / "datasets"
 REPORT_PATH = REPORTS_DIR / "monthly_official_update_report.json"
 SUMMARY_PATH = REPORTS_DIR / "monthly_official_update_summary.md"
+REVIEW_ARTIFACT_DIR = REPORTS_DIR / "official-data-review"
 BASE_URL = "https://official-sync-data.github.io/updates"
 
 AUTOMATED_RULE_DATASETS = {
@@ -185,7 +186,13 @@ def functional_entries_sha256(entries):
 
 
 def build_review_fingerprint(comparison):
-    payload = {
+    payload = review_fingerprint_payload(comparison)
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def review_fingerprint_payload(comparison):
+    return {
         "datasetId": "official_numbers_fr",
         "oldFunctionalSha256": comparison.get("oldFunctionalSha256", ""),
         "newFunctionalSha256": comparison.get("newFunctionalSha256", ""),
@@ -195,8 +202,110 @@ def build_review_fingerprint(comparison):
         "oldEntryCount": int(comparison.get("oldEntryCount", 0)),
         "newEntryCount": int(comparison.get("newEntryCount", 0)),
     }
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
+
+
+def functional_review_entry(entry):
+    return {key: entry.get(key, "") for key in ("d", "c", "t", "dep")}
+
+
+def build_functional_review_diff(old_entries, new_entries):
+    old_numbers = set(old_entries)
+    new_numbers = set(new_entries)
+    return {
+        "schemaVersion": 1,
+        "datasetId": "official_numbers_fr_review_diff",
+        "added": [
+            {
+                "normalizedNumber": number,
+                "after": functional_review_entry(new_entries[number]),
+            }
+            for number in sorted(new_numbers - old_numbers)
+        ],
+        "removed": [
+            {
+                "normalizedNumber": number,
+                "before": functional_review_entry(old_entries[number]),
+            }
+            for number in sorted(old_numbers - new_numbers)
+        ],
+        "modified": [
+            {
+                "normalizedNumber": number,
+                "before": functional_review_entry(old_entries[number]),
+                "after": functional_review_entry(new_entries[number]),
+            }
+            for number in sorted(old_numbers & new_numbers)
+            if old_entries[number] != new_entries[number]
+        ],
+    }
+
+
+def validate_review_artifact_safety(artifact_dir, secret_values=None):
+    allowed = {
+        "source_hashes.json",
+        "fingerprint_payload.json",
+        "official_numbers_fr_review_diff.json",
+        "review_summary.json",
+    }
+    files = [path for path in artifact_dir.rglob("*") if path.is_file()]
+    unexpected = sorted(path.name for path in files if path.name not in allowed)
+    if unexpected:
+        raise RuntimeError(f"Fichiers artifact inattendus: {unexpected}")
+    blocked_names = (".apk", ".pem", "official_numbers_fr_full.json")
+    markers = [b"-----BEGIN PRIVATE KEY-----", b"OFFICIAL_UPDATE_PRIVATE_KEY"]
+    for secret in secret_values or []:
+        if secret:
+            markers.append(secret if isinstance(secret, bytes) else str(secret).encode("utf-8"))
+    for path in files:
+        lowered = path.name.lower()
+        if lowered.endswith(blocked_names) or "private" in lowered or "token" in lowered:
+            raise RuntimeError(f"Fichier interdit dans artifact: {path.name}")
+        payload = path.read_bytes()
+        if any(marker and marker in payload for marker in markers):
+            raise RuntimeError(f"Secret détecté dans artifact: {path.name}")
+    return True
+
+
+def create_review_artifacts(new_compact_path, source_hashes_path, comparison, status):
+    if REVIEW_ARTIFACT_DIR.exists():
+        shutil.rmtree(REVIEW_ARTIFACT_DIR)
+    REVIEW_ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
+    old_entries = official_numbers_functional_entries(
+        read_gzip_json(DATASETS_DIR / "official_numbers_fr.json.gz")
+    )
+    new_entries = official_numbers_functional_entries(read_json(new_compact_path))
+    payload = review_fingerprint_payload(comparison)
+    fingerprint = build_review_fingerprint(comparison)
+    if fingerprint != comparison.get("reviewFingerprint"):
+        raise RuntimeError("Fingerprint incohérent avec sa charge de contrôle.")
+    shutil.copy2(source_hashes_path, REVIEW_ARTIFACT_DIR / "source_hashes.json")
+    write_json(REVIEW_ARTIFACT_DIR / "fingerprint_payload.json", payload)
+    write_json(
+        REVIEW_ARTIFACT_DIR / "official_numbers_fr_review_diff.json",
+        build_functional_review_diff(old_entries, new_entries),
+    )
+    write_json(
+        REVIEW_ARTIFACT_DIR / "review_summary.json",
+        {
+            "datasetId": "official_numbers_fr",
+            "status": status,
+            "reviewFingerprint": fingerprint,
+            "changeRatio": comparison.get("changeRatio", 0.0),
+            "changeCount": comparison.get("changeCount", 0),
+            "publication": "NON",
+            "publicData": "CONSERVÉES",
+        },
+    )
+    secrets = []
+    private_key_file = os.environ.get("OFFICIAL_UPDATE_PRIVATE_KEY_FILE", "")
+    if private_key_file and Path(private_key_file).is_file():
+        secrets.append(Path(private_key_file).read_bytes())
+    validate_review_artifact_safety(REVIEW_ARTIFACT_DIR, secrets)
+    return {
+        "ready": True,
+        "directory": str(REVIEW_ARTIFACT_DIR),
+        "files": sorted(path.name for path in REVIEW_ARTIFACT_DIR.iterdir()),
+    }
 
 
 def apply_review_gate(comparison, approved_fingerprint, safety_errors=None):
@@ -412,6 +521,7 @@ def run_official_numbers_builder(enabled, keep_output=False, approved_review_fin
         "newFunctionalSha256": "",
         "reviewApproved": False,
         "migrationValidation": {},
+        "reviewArtifact": {"ready": False, "directory": "", "files": []},
     }
     if not enabled:
         result["error"] = "Skipped in local safe validation mode."
@@ -436,6 +546,8 @@ def run_official_numbers_builder(enabled, keep_output=False, approved_review_fin
             str(ROOT / "tools" / "build_official_numbers_fr.py"),
             "--root",
             temp_dir,
+            "--frozen-sources-dir",
+            str(temp_root / "frozen-sources"),
         ]
         completed = subprocess.run(command, text=True, capture_output=True)
         result["stdout"] = completed.stdout
@@ -504,6 +616,25 @@ def run_official_numbers_builder(enabled, keep_output=False, approved_review_fin
                 result["status"] = "BLOCKED"
                 result["error"] = "official_numbers_fr source FINESS disappeared."
                 result["reviewRequired"] = False
+            if result["status"] in {
+                REVIEW_REQUIRED_STATUS,
+                REVIEW_MISMATCH_STATUS,
+                REVIEW_APPROVED_STATUS,
+            }:
+                try:
+                    result["reviewArtifact"] = create_review_artifacts(
+                        temp_root / "datasets" / "official_numbers_fr.json",
+                        temp_root / "frozen-sources" / "source_hashes.json",
+                        compact_comparison,
+                        result["status"],
+                    )
+                except Exception as exc:
+                    result["status"] = "BLOCKED"
+                    result["error"] = (
+                        "Artifact de revue refusé: "
+                        f"{type(exc).__name__}: {exc}"
+                    )
+                    result["reviewRequired"] = False
         else:
             result["status"] = "BLOCKED"
             result["error"] = "Build report absent."
@@ -895,6 +1026,8 @@ def build_markdown(report):
 
 
 def run(args):
+    if REVIEW_ARTIFACT_DIR.exists():
+        shutil.rmtree(REVIEW_ARTIFACT_DIR)
     mode = "manuel" if args.workflow_dispatch else "automatique"
     rule_reports = []
     for dataset_id in SOURCE_CONFIGS:
