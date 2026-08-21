@@ -64,6 +64,31 @@ function Read-GzipJson {
     }
 }
 
+function Get-Sha256Hex {
+    param([string]$Path)
+
+    $stream = [System.IO.File]::Open(
+            $Path,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::Read)
+    try {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $hashBytes = $sha256.ComputeHash($stream)
+            $builder = [System.Text.StringBuilder]::new($hashBytes.Length * 2)
+            foreach ($byte in $hashBytes) {
+                [void]$builder.Append($byte.ToString("x2"))
+            }
+            return $builder.ToString()
+        } finally {
+            $sha256.Dispose()
+        }
+    } finally {
+        $stream.Dispose()
+    }
+}
+
 function Test-ManifestSignature {
     param(
         [string]$PublicKeyPath,
@@ -236,7 +261,7 @@ foreach ($property in $datasetEntries) {
         continue
     }
 
-    $actualSha = (Get-FileHash -LiteralPath $datasetPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $actualSha = Get-Sha256Hex -Path $datasetPath
     if ($actualSha -ne ([string]$entry.sha256).ToLowerInvariant()) {
         Add-Error "${datasetId}: SHA-256 incoherent."
     }
