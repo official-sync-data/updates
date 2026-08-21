@@ -41,12 +41,17 @@ OFFICIAL_NUMBERS_AUTO_CHANGE_RATIO_LIMIT = 0.005
 OFFICIAL_NUMBERS_DROP_RATIO_LIMIT = 0.20
 OFFICIAL_NUMBERS_GROWTH_RATIO_LIMIT = 0.50
 OFFICIAL_NUMBERS_REMOVAL_RATIO_LIMIT = 0.10
-ALLOWED_DIFF_FILES = {
-    "manifest.json",
-    "manifest.sig",
-    "official_update_public_key.pem",
+PUBLICATION_DATASET_FILES = {
+    "de_bundesnetzagentur": "de_bundesnetzagentur.json",
+    "en_ofcom": "en_ofcom.json",
+    "es_cnmc": "es_cnmc.json",
+    "fr_arcep": "fr_arcep.json",
+    "it_agcom": "it_agcom.json",
+    "lb_ilr": "lb_ilr.json",
+    "nl_acm": "nl_acm.json",
+    "official_numbers_fr": "official_numbers_fr.json.gz",
+    "pt_anacom": "pt_anacom.json",
 }
-ALLOWED_DIFF_PREFIXES = ("datasets/",)
 BLOCKED_DIFF_SUFFIXES = (
     ".apk",
     ".db",
@@ -798,9 +803,26 @@ def changed_files():
     return files
 
 
-def validate_publication_diff(files):
+def relative_public_path(path):
+    return path.relative_to(ROOT).as_posix()
+
+
+def allowed_publication_diff_files(report):
+    allowed = {
+        relative_public_path(PUBLIC_DIR / "manifest.json"),
+        relative_public_path(PUBLIC_DIR / "manifest.sig"),
+    }
+    for dataset_id in report.get("changedDatasets", []):
+        file_name = PUBLICATION_DATASET_FILES.get(dataset_id)
+        if file_name:
+            allowed.add(relative_public_path(PUBLIC_DATASETS_DIR / file_name))
+    return allowed
+
+
+def validate_publication_diff(files, allowed_files):
     blocked = []
     unexpected = []
+    allowed_files = set(allowed_files)
     for path in files:
         lowered = path.lower()
         if any(part in lowered for part in BLOCKED_DIFF_PARTS):
@@ -812,11 +834,7 @@ def validate_publication_diff(files):
         if lowered.endswith(BLOCKED_DIFF_SUFFIXES):
             blocked.append(path)
             continue
-        if path in ALLOWED_DIFF_FILES:
-            continue
-        if path.startswith(ALLOWED_DIFF_PREFIXES) and (
-            path.endswith(".json") or path.endswith(".json.gz")
-        ):
+        if path in allowed_files:
             continue
         unexpected.append(path)
     if blocked or unexpected:
@@ -851,7 +869,7 @@ def publish_if_needed(report):
     regenerate_manifest_and_signature()
     verify_public_update_set()
     files = changed_files()
-    validate_publication_diff(files)
+    validate_publication_diff(files, allowed_publication_diff_files(report))
     publication["changedFiles"] = files
     if not files:
         return publication
