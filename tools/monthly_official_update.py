@@ -799,7 +799,8 @@ def changed_files():
     files = []
     for line in output.splitlines():
         if line.strip():
-            files.append(normalize_diff_path(line[3:]))
+            path_start = 3 if len(line) > 2 and line[2] == " " else 2
+            files.append(normalize_diff_path(line[path_start:]))
     return files
 
 
