@@ -7,6 +7,7 @@ import io
 import json
 import os
 import re
+import unicodedata
 import urllib.parse
 import urllib.request
 from collections import Counter, OrderedDict
@@ -151,6 +152,12 @@ def clean_text(value):
     return re.sub(r"\s+", " ", str(value)).strip()
 
 
+def normalized_label(value):
+    text = unicodedata.normalize("NFKD", clean_text(value).lower())
+    text = "".join(char for char in text if not unicodedata.combining(char))
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", text)).strip()
+
+
 def title_city(value):
     value = clean_text(value)
     return value.title() if value else ""
@@ -287,6 +294,232 @@ def candidate_selection_key(source, candidate):
     )
 
 
+DILA_RESOLUTION_UNIQUE = "UNIQUE"
+DILA_RESOLUTION_EQUIVALENT = "EQUIVALENT"
+DILA_RESOLUTION_PARENT_SELECTED = "PARENT_SELECTED"
+DILA_RESOLUTION_AMBIGUOUS = "AMBIGUOUS_SHARED_NUMBER"
+
+DILA_PARENT_NAME_PATTERNS = (
+    r"^ademe\b",
+    r"^agence nationale\b",
+    r"^agence regionale\b",
+    r"^autorite\b",
+    r"^centre hospitalier\b",
+    r"^direction generale\b",
+    r"^hopital\b",
+    r"^mairie\b",
+    r"^ministere\b",
+    r"^prefecture\b",
+    r"^universite\b",
+)
+
+DILA_CHILD_NAME_PATTERNS = (
+    r"^antenne\b",
+    r"^bureau\b",
+    r"^cellule\b",
+    r"^commission\b",
+    r"^commissions\b",
+    r"^departement\b",
+    r"^direction\b",
+    r"^mission\b",
+    r"^secretariat\b",
+    r"^service\b",
+    r"^sous direction\b",
+)
+
+DILA_AMBIGUOUS_SHARED_CATEGORIES = {
+    "cicas",
+    "point_justice",
+    "sip",
+}
+
+DILA_COMMUNAL_PARENT_CATEGORIES = {"mairie"}
+DILA_COMMUNAL_CHILD_CATEGORIES = {"ccas"}
+
+
+def dila_functional_key(candidate):
+    return (
+        candidate.get("displayName", ""),
+        candidate.get("city", ""),
+        candidate.get("postalCode", ""),
+        candidate.get("department", ""),
+        candidate.get("category", ""),
+    )
+
+
+def dila_technical_key(candidate):
+    source = candidate.get("sources", [{}])[0]
+    return (
+        clean_text(source.get("sourceId")),
+        candidate.get("displayName", ""),
+        candidate.get("city", ""),
+        candidate.get("postalCode", ""),
+        candidate.get("department", ""),
+        candidate.get("category", ""),
+    )
+
+
+def dila_name_matches_any(name, patterns):
+    return any(re.search(pattern, name) for pattern in patterns)
+
+
+def dila_acronyms(value):
+    return {
+        normalized_label(match)
+        for match in re.findall(r"\(([A-Z0-9]{2,})\)", clean_text(value))
+    }
+
+
+def dila_parent_base_score(name):
+    if re.search(r"^mairie\b", name):
+        return 150
+    if re.search(r"^autorite\b", name):
+        return 145
+    if re.search(r"^ademe\b", name):
+        return 145
+    if re.search(r"^centre hospitalier\b", name) or re.search(r"^hopital\b", name):
+        return 140
+    if re.search(r"^direction generale\b", name):
+        return 135
+    if re.search(r"^agence nationale\b", name) or re.search(r"^agence regionale\b", name):
+        return 130
+    if re.search(r"^universite\b", name) or re.search(r"^prefecture\b", name):
+        return 125
+    if re.search(r"^ministere\b", name):
+        return 110
+    return 100
+
+
+def dila_parent_candidate_score(candidate, candidates):
+    name = normalized_label(candidate.get("displayName"))
+    category = normalized_label(candidate.get("category"))
+    city = normalized_label(candidate.get("city"))
+    if not dila_name_matches_any(name, DILA_PARENT_NAME_PATTERNS):
+        return -1
+    base_score = dila_parent_base_score(name)
+
+    other_candidates = [item for item in candidates if item is not candidate]
+    if not other_candidates:
+        return -1
+
+    if category in DILA_COMMUNAL_PARENT_CATEGORIES:
+        has_communal_child = any(
+            normalized_label(item.get("city")) == city
+            and normalized_label(item.get("category")) in DILA_COMMUNAL_CHILD_CATEGORIES
+            for item in other_candidates
+        )
+        return base_score if has_communal_child else -1
+
+    child_count = sum(
+        1
+        for item in other_candidates
+        if dila_name_matches_any(normalized_label(item.get("displayName")), DILA_CHILD_NAME_PATTERNS)
+    )
+    same_city_count = sum(
+        1
+        for item in other_candidates
+        if city and normalized_label(item.get("city")) == city
+    )
+    same_category_count = sum(
+        1
+        for item in other_candidates
+        if category and normalized_label(item.get("category")) == category
+    )
+    acronym_matches = 0
+    acronyms = dila_acronyms(candidate.get("displayName"))
+    if acronyms:
+        for item in other_candidates:
+            item_name = normalized_label(item.get("displayName"))
+            if any(acronym and acronym in item_name for acronym in acronyms):
+                acronym_matches += 1
+
+    other_count = len(other_candidates)
+    same_city_ratio = same_city_count / other_count if other_count else 0
+    same_category_ratio = same_category_count / other_count if other_count else 0
+
+    if acronym_matches:
+        return base_score + 90 + acronym_matches
+    if child_count and same_city_ratio >= 0.8 and same_category_ratio >= 0.8:
+        return base_score + 80 + child_count
+    if child_count >= 3 and same_category_ratio >= 0.8:
+        return base_score + 70 + child_count
+    return -1
+
+
+def resolve_dila_candidates(candidates):
+    if len(candidates) == 1:
+        return candidates[0], DILA_RESOLUTION_UNIQUE, False
+
+    functional_keys = {dila_functional_key(candidate) for candidate in candidates}
+    if len(functional_keys) == 1:
+        return sorted(candidates, key=dila_technical_key)[0], DILA_RESOLUTION_EQUIVALENT, True
+
+    scored_parents = [
+        (dila_parent_candidate_score(candidate, candidates), candidate)
+        for candidate in candidates
+    ]
+    scored_parents = [
+        (score, candidate)
+        for score, candidate in scored_parents
+        if score >= 0
+    ]
+    if scored_parents:
+        scored_parents.sort(key=lambda item: (-item[0], dila_technical_key(item[1])))
+        return scored_parents[0][1], DILA_RESOLUTION_PARENT_SELECTED, False
+
+    categories = {
+        normalized_label(candidate.get("category"))
+        for candidate in candidates
+        if candidate.get("category")
+    }
+    cities = {
+        normalized_label(candidate.get("city"))
+        for candidate in candidates
+        if candidate.get("city")
+    }
+    if len(categories) == 1 and (len(cities) > 1 or next(iter(categories), "") in DILA_AMBIGUOUS_SHARED_CATEGORIES):
+        return sorted(candidates, key=dila_technical_key)[0], DILA_RESOLUTION_AMBIGUOUS, False
+
+    return sorted(candidates, key=dila_technical_key)[0], DILA_RESOLUTION_AMBIGUOUS, False
+
+
+def resolve_dila_shared_numbers(groups):
+    stats = Counter(
+        {
+            "multiCandidateNumbers": 0,
+            "equivalentResolved": 0,
+            "parentResolved": 0,
+            "ambiguousSharedNumbers": 0,
+            "sourceIdFinalTieBreakUsed": 0,
+        }
+    )
+    for normalized, current in list(groups.items()):
+        candidates = current.get("_dilaCandidates", [])
+        if not candidates:
+            continue
+        selected, status, technical_tie = resolve_dila_candidates(candidates)
+        if len(candidates) > 1:
+            stats["multiCandidateNumbers"] += 1
+        if status == DILA_RESOLUTION_EQUIVALENT:
+            stats["equivalentResolved"] += 1
+        elif status == DILA_RESOLUTION_PARENT_SELECTED:
+            stats["parentResolved"] += 1
+        elif status == DILA_RESOLUTION_AMBIGUOUS:
+            stats["ambiguousSharedNumbers"] += 1
+        if technical_tie:
+            stats["sourceIdFinalTieBreakUsed"] += 1
+
+        merged_sources = current["sources"]
+        selected = dict(selected)
+        selected["sources"] = merged_sources
+        selected["_dilaCandidates"] = candidates
+        selected["_selectedAuthority"] = "DILA"
+        selected["_selectionKey"] = candidate_selection_key(merged_sources[0], selected)
+        selected["dilaResolutionStatus"] = status
+        groups[normalized] = selected
+    return dict(stats)
+
+
 def record_invalid_french_phone(rejected, raw):
     rejected.append(
         {
@@ -317,6 +550,10 @@ def add_candidate(groups, rejected, raw):
         url=clean_text(raw.get("url")),
         lastSeenDate=raw.get("lastSeenDate", TODAY),
     )
+    if raw.get("authority") == "DILA":
+        source["dilaTypeOrganisme"] = clean_text(raw.get("dilaTypeOrganisme"))
+        source["dilaCategory"] = clean_text(raw.get("dilaCategory"))
+        source["dilaPivotTypeServiceLocal"] = clean_text(raw.get("dilaPivotTypeServiceLocal"))
     if raw.get("validated") is True:
         source["validated"] = True
     if raw.get("finessJuridique"):
@@ -338,6 +575,8 @@ def add_candidate(groups, rejected, raw):
     }
     candidate["_selectionKey"] = candidate_selection_key(source, candidate)
     candidate["_selectedAuthority"] = source.get("authority", "")
+    if source.get("authority") == "DILA":
+        candidate["_dilaCandidates"] = [candidate]
     if normalized not in groups:
         groups[normalized] = candidate
         return
@@ -346,6 +585,10 @@ def add_candidate(groups, rejected, raw):
     key = (source.get("authority"), source.get("sourceId"), source.get("entityType"))
     if key not in existing:
         current["sources"].append(source)
+    if source.get("authority") == "DILA":
+        current.setdefault("_dilaCandidates", [])
+        if key not in existing:
+            current["_dilaCandidates"].append(candidate)
     current_key = current["_selectionKey"]
     new_key = candidate["_selectionKey"]
     higher_priority = new_key[0] < current_key[0]
@@ -357,8 +600,11 @@ def add_candidate(groups, rejected, raw):
     )
     if higher_priority or deterministic_dila_tie:
         merged_sources = current["sources"]
+        merged_dila_candidates = current.get("_dilaCandidates")
         groups[normalized] = candidate
         groups[normalized]["sources"] = merged_sources
+        if deterministic_dila_tie and merged_dila_candidates is not None:
+            groups[normalized]["_dilaCandidates"] = merged_dila_candidates
 
 
 def new_stats():
@@ -396,6 +642,9 @@ def fetch_dila(groups, rejected, limit, frozen_records=None):
         if pivots and isinstance(pivots[0], dict):
             category = clean_text(pivots[0].get("type_service_local"))
         category = category or clean_text(record.get("type_organisme")) or clean_text(record.get("categorie"))
+        pivot_type_service_local = ""
+        if pivots and isinstance(pivots[0], dict):
+            pivot_type_service_local = clean_text(pivots[0].get("type_service_local"))
         for phone in phones[:1]:
             value = phone.get("valeur") if isinstance(phone, dict) else phone
             before = len(rejected)
@@ -410,6 +659,9 @@ def fetch_dila(groups, rejected, limit, frozen_records=None):
                 "postalCode": address.get("code_postal"),
                 "department": department_from_postal_code(address.get("code_postal")),
                 "category": category,
+                "dilaTypeOrganisme": record.get("type_organisme"),
+                "dilaCategory": record.get("categorie"),
+                "dilaPivotTypeServiceLocal": pivot_type_service_local,
                 "status": "ACTIVE" if str(record.get("statut_de_diffusion")).lower() in ("true", "1") else "INACTIVE",
                 "lastSeenDate": TODAY,
             })
@@ -757,7 +1009,7 @@ def build_entries(groups):
             ),
         )
         ordered = OrderedDict()
-        for key in ("id", "normalizedNumber", "displayName", "city", "postalCode", "department", "category", "categoryCode", "categoryCodeSystem", "status", "sources"):
+        for key in ("id", "normalizedNumber", "displayName", "city", "postalCode", "department", "category", "categoryCode", "categoryCodeSystem", "status", "dilaResolutionStatus", "sources"):
             ordered[key] = entry.get(key, "" if key != "sources" else [])
         entries.append(ordered)
     return entries
@@ -772,7 +1024,7 @@ def compare(previous, new):
     unchanged = 0
     for number in sorted(set(prev_entries) & set(new_entries)):
         changes = {}
-        for field in ("displayName", "city", "postalCode", "department", "category", "categoryCode", "categoryCodeSystem", "status", "sources"):
+        for field in ("displayName", "city", "postalCode", "department", "category", "categoryCode", "categoryCodeSystem", "status", "dilaResolutionStatus", "sources"):
             if prev_entries[number].get(field) != new_entries[number].get(field):
                 changes[field] = {"previous": prev_entries[number].get(field), "new": new_entries[number].get(field)}
         if changes:
@@ -795,6 +1047,8 @@ def compare(previous, new):
 def build_android_dataset(full_dataset):
     compact_entries = []
     for entry in full_dataset.get("entries", []):
+        if entry.get("dilaResolutionStatus") == DILA_RESOLUTION_AMBIGUOUS:
+            continue
         item = OrderedDict()
         item["n"] = entry.get("normalizedNumber", "")
         item["d"] = entry.get("displayName", "")
@@ -915,6 +1169,8 @@ def main():
     category_labels, category_statuses, category_nomenclature = load_finess_category_nomenclature(frozen_categories)
     commune_labels, commune_nomenclature = load_finess_commune_nomenclature(frozen_communes)
     dila_stats = fetch_dila(groups, rejected, args.dila_limit, frozen_dila)
+    dila_resolution_stats = resolve_dila_shared_numbers(groups)
+    dila_stats["resolution"] = dila_resolution_stats
     finess_stats = fetch_finess(
         groups,
         rejected,
