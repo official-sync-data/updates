@@ -44,10 +44,10 @@
       "ruleCount": 11
     },
     "official_numbers_fr": {
-      "version": "2026-08-15",
+      "version": "2026-08-21",
       "url": "https://official-sync-data.github.io/updates/datasets/official_numbers_fr.json.gz",
-      "sha256": "8f532078be0bf3585edfe255770fa4d1bb909dd1bd2fb434bff9e47e1cb156a7",
-      "entryCount": 144576,
+      "sha256": "7516359fb564a469c4188162999082541b81762eaf6d4a01454e952110f2cbda",
+      "entryCount": 140270,
       "type": "official_numbers",
       "compression": "gzip"
     },
