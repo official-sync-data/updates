@@ -1,2 +1,1 @@
-# updates
-Official update files
+Application update resources.
