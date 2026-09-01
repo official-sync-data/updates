@@ -2,7 +2,7 @@ name: Monthly official data update
 
 on:
   schedule:
-    - cron: "30 3 5 * *"
+    - cron: "30 3 * * 1"
   workflow_dispatch:
     inputs:
       approve_review_fingerprint:
